@@ -13,4 +13,4 @@ async def get_redis_client() -> RedisClient:
         _redis_client = RedisClient()
         await _redis_client.connect()
         return _redis_client
-    
+    return _redis_client
