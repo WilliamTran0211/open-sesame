@@ -49,4 +49,5 @@ class CreateUserSchema(BaseModel):
 
 
 class UpdateUserSchema(BaseModel):
+    email: Optional[EmailStr] = Field(default=None, description="New email")
     full_name: Optional[str] = Field(default=None, max_length=255)

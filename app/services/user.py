@@ -1,5 +1,5 @@
-from ast import List
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +28,12 @@ class UserService:
     ) -> List[User]:
         return await self.repository.get_all(skip=skip, limit=limit, filters=filters)
 
+    async def get_active_user(self, id: UUID | str) -> User:
+        user = await self.repository.get(str(id))
+        if not user or not user.is_active:
+            raise NotFoundError(ErrorMessage.NOT_FOUND)
+        return user
+
     async def create_user(self, data: CreateUserSchema) -> tuple[User, str]:
         check_user = await self.repository.get_by_email(data.email)
 
@@ -50,13 +56,31 @@ class UserService:
         return user
 
     async def update_user(self, user_id: str, data: UpdateUserSchema) -> User:
-        check_user = await self.repository.get(id)
+        check_user = await self.repository.get(user_id)
 
         if not check_user:
             raise NotFoundError(ErrorMessage.NOT_FOUND)
 
-        user = await self.repository.update(check_user.id, data)
+        update_data = data.model_dump(exclude_none=True)
 
+        if "email" in update_data:
+            email = update_data["email"].lower()
+            if email != check_user.email:
+                existing = await self.repository.get_by_email(email)
+                if existing:
+                    raise ConflictError(ErrorMessage.CONFLICT)
+                update_data["email"] = email
+                update_data["is_verified"] = False
+                update_data["email_verified"] = False
+                if self._otp_services:
+                    await self._otp_services.generate(
+                        check_user.id, purpose=VerificationPurpose.EMAIL_VERIFY
+                    )
+
+        if not update_data:
+            return check_user
+
+        user = await self.repository.update(check_user.id, **update_data)
         return user
 
     async def authenticate(self, email: str, password: str) -> User:
