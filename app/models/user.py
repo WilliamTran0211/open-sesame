@@ -54,26 +54,3 @@ class User(UUIDMixin, TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r}>"
-
-    @classmethod
-    async def create(cls, db: AsyncSession, id=None, **kwargs):
-        if not id:
-            id = uuid4().hex
-
-        transaction = cls(id=id, **kwargs)
-        db.add(transaction)
-        await db.commit()
-        await db.refresh(transaction)
-        return transaction
-
-    @classmethod
-    async def get(cls, db: AsyncSession, id: str):
-        try:
-            transaction = await db.get(cls, id)
-        except NoResultFound:
-            return None
-        return transaction
-
-    @classmethod
-    async def get_all(cls, db: AsyncSession):
-        return (await db.execute(select(cls))).scalars().all()
