@@ -79,7 +79,6 @@ class RefreshToken(UUIDMixin, TimestampMixin, Base):
     )
 
     __table_args__ = (
-        Index("ix_refresh_tokens_family_id", "family_id"),
         Index("ix_refresh_tokens_expires_at", "expires_at"),
         Index("ix_refresh_tokens_user_client", "user_id", "client_id"),
     )

@@ -18,13 +18,24 @@ class PasswordHelper:
     @classmethod
     def hash(cls, password: str) -> str:
         return cls._context.hash(password)
-    
+
     @classmethod
     def verify(cls, plain: str, hashed: str) -> bool:
         try:
             return cls._context.verify(plain, hashed)
         except (ValueError, TypeError):
             return False
+
+
+class TokenHelper:
+    @staticmethod
+    def hash(token: str) -> str:
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def generate() -> str:
+        # auto-gen random token
+        return secrets.token_urlsafe(32)
 
 
 class JWTHelper:
@@ -68,6 +79,7 @@ class OTPHelper:
     def verify(self, plain: str, hashed: str) -> bool:
         computed = hashlib.sha256(plain.encode()).hexdigest()
         return hmac.compare_digest(computed, hashed)
+
 
 class SecurityHelper:
     @staticmethod
