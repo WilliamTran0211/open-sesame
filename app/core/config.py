@@ -1,6 +1,5 @@
 from functools import lru_cache
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -31,7 +30,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # SESSION
-    SESSION_EXPIRE_DAYS: int = 7  # days
+    SESSION_EXPIRE_DAYS: int = 604800  # seconds (~ 7 days)
 
     @property
     def database_url(self) -> str:
@@ -41,6 +40,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+        extra = "ignore"
 
 
 @lru_cache()
@@ -48,5 +48,29 @@ def get_settings() -> Settings:
     return Settings()
 
 
+class EmailConfigSettings(BaseSettings):
+    """
+    Pydantic model for SMTP server configuration.
+    Reads settings from environment variables.
+    """
+
+    SMTP_HOST: str
+    SMTP_PORT: int = 587
+    SMTP_USER: str
+    SMTP_PASSWORD: str
+    EMAILS_FROM_EMAIL: str
+    EMAILS_FROM_NAME: str = "My Application"
+
+    class Config:
+        env_file = ".env"
+        extra = "ignore"
+
+
+@lru_cache()
+def get_email_settings() -> EmailConfigSettings:
+    return EmailConfigSettings()
+
+
 # Export instance
 settings = get_settings()
+email_settings = get_email_settings()

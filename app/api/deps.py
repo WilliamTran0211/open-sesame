@@ -4,11 +4,14 @@ from typing import Annotated
 from fastapi import Cookie, Depends, Request
 
 from app.common.error_message import ErrorMessage
+from app.core.config import get_email_settings
 from app.core.deps import RedisDep
 from app.core.exception import UnauthorizedError
 from app.db.deps import DBDep
 from app.models.user import User
 from app.services.auth import AuthService
+from app.services.client import OAuthClientService
+from app.services.email import EmailServices
 from app.services.otp import OTPService
 from app.services.user import UserService
 from app.services.user_session import UserSessionService
@@ -18,20 +21,16 @@ def get_otp_service(redis_client: RedisDep) -> OTPService:
     return OTPService(redis_client)
 
 
+def get_email_services() -> EmailServices:
+    return EmailServices(get_email_settings())
+
+
 def get_user_services(
     db: DBDep,
-    otp_service: OTPService = Depends(get_otp_service),
+    otp_service: Annotated[OTPService, Depends(get_otp_service)],
+    email_service: Annotated[EmailServices, Depends(get_email_services)],
 ) -> UserService:
-    return UserService(db, otp_service)
-
-
-def get_auth_services(
-    db: DBDep,
-    redis_client: RedisDep,
-) -> AuthService:
-    user_services = UserService(db)
-    session_services = UserSessionService(db, redis_client)
-    return AuthService(user_services, session_services)
+    return UserService(db, otp_service, email_service)
 
 
 def get_user_session_services(
@@ -41,11 +40,26 @@ def get_user_session_services(
     return UserSessionService(db, redis_client)
 
 
+def get_auth_services(
+    db: DBDep,
+    redis_client: RedisDep,
+    user_services: Annotated[UserService, Depends(get_user_services)],
+) -> AuthService:
+    session_services = UserSessionService(db, redis_client)
+    return AuthService(user_services, session_services)
+
+
+def get_client_services(db: DBDep) -> OAuthClientService:
+    return OAuthClientService(db)
+
+
 async def get_current_user(
     request: Request,
+    user_service: Annotated[UserService, Depends(get_user_services)],
+    user_session_services: Annotated[
+        UserSessionService, Depends(get_user_session_services)
+    ],
     session_id: Annotated[str | None, Cookie()] = None,
-    user_service: UserService = Depends(get_user_services),
-    user_session_services: UserSessionService = Depends(get_user_session_services),
 ) -> User:
     payload = request.state.token_payload
     if payload:
@@ -59,7 +73,7 @@ async def get_current_user(
 
 async def require_token(
     request: Request,
-    user_service: UserService = Depends(get_user_services),
+    user_service: Annotated[UserService, Depends(get_user_services)],
 ) -> User:
     payload = request.state.token_payload
     if not payload:
@@ -68,8 +82,10 @@ async def require_token(
 
 
 async def require_session(
+    user_session_services: Annotated[
+        UserSessionService, Depends(get_user_session_services)
+    ],
     session_id: Annotated[str | None, Cookie()] = None,
-    user_session_services: UserSessionService = Depends(get_user_session_services),
 ) -> User:
     if not session_id:
         raise UnauthorizedError(ErrorMessage.UNAUTHORIZED)
@@ -77,12 +93,14 @@ async def require_session(
 
 
 OtpServicesDep = Annotated[OTPService, Depends(get_otp_service)]
+EmailServicesDep = Annotated[EmailServices, Depends(get_email_services)]
 UserServicesDep = Annotated[UserService, Depends(get_user_services)]
 
 AuthServicesDep = Annotated[AuthService, Depends(get_auth_services)]
 UserSessionServicesDep = Annotated[
     UserSessionService, Depends(get_user_session_services)
 ]
+OAuthClientServiceDep = Annotated[OAuthClientService, Depends(get_client_services)]
 
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 RequireTokenDep = Annotated[User, Depends(require_token)]
