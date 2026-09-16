@@ -1,4 +1,5 @@
 import logging
+import logging.config
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -10,7 +11,9 @@ from app.core.config import get_settings
 from app.core.exception import register_exception_handlers
 from app.db.session import session_manager
 from app.logger.config import LOGGING_CONFIG
+from app.middleware.auth import AuthMiddleware
 from app.middleware.logging import LoggingMiddleware
+from app.services.access_token import get_token_service
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
@@ -38,12 +41,10 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
 
-    logging.config.dictConfig(LOGGING_CONFIG)
-
     # middleware
-    app.add_middleware(
-        LoggingMiddleware,
-    )
+    app.add_middleware(LoggingMiddleware)
+
+    app.add_middleware(AuthMiddleware, token_service=get_token_service())
 
     # CORS
     origins = [
