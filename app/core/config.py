@@ -30,11 +30,15 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # SESSION
-    SESSION_EXPIRE_DAYS: int = 604800  # seconds (~ 7 days)
+    SESSION_EXPIRE_DAYS: int = 7  # days
 
     @property
     def database_url(self) -> str:
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+
+    @property
+    def session_max_age_seconds(self) -> int:
+        return self.SESSION_EXPIRE_DAYS * 86400
 
     class Config:
         env_file = ".env"

@@ -9,10 +9,12 @@ from app.core.deps import RedisDep
 from app.core.exception import UnauthorizedError
 from app.db.deps import DBDep
 from app.models.user import User
+from app.services.access_token import TokenService, get_token_service
 from app.services.auth import AuthService
 from app.services.client import OAuthClientService
 from app.services.email import EmailServices
 from app.services.otp import OTPService
+from app.services.refresh_token import RefreshTokenServices
 from app.services.user import UserService
 from app.services.user_session import UserSessionService
 
@@ -40,13 +42,23 @@ def get_user_session_services(
     return UserSessionService(db, redis_client)
 
 
+def get_refresh_token_services(db: DBDep) -> RefreshTokenServices:
+    return RefreshTokenServices(db)
+
+
 def get_auth_services(
     db: DBDep,
     redis_client: RedisDep,
     user_services: Annotated[UserService, Depends(get_user_services)],
+    token_services: Annotated[
+        RefreshTokenServices, Depends(get_refresh_token_services)
+    ],
+    access_token_service: Annotated[TokenService, Depends(get_token_service)],
 ) -> AuthService:
     session_services = UserSessionService(db, redis_client)
-    return AuthService(user_services, session_services)
+    return AuthService(
+        user_services, session_services, token_services, access_token_service
+    )
 
 
 def get_client_services(db: DBDep) -> OAuthClientService:
