@@ -51,3 +51,26 @@ class CreateUserSchema(BaseModel):
 class UpdateUserSchema(BaseModel):
     email: Optional[EmailStr] = Field(default=None, description="New email")
     full_name: Optional[str] = Field(default=None, max_length=255)
+
+
+class ChangePasswordSchema(BaseModel):
+    current_password: str = Field(
+        ...,
+        min_length=8,
+        max_length=100,
+        description="Password must be 8-100 characters",
+    )
+    new_password: str = Field(
+        ...,
+        min_length=8,
+        max_length=100,
+        description="Password must be 8-100 characters",
+    )
+
+    @field_validator("new_password")
+    def validate_password_complexity(cls, v):
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one number")
+        return v

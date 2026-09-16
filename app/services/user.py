@@ -6,19 +6,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.enum import VerificationPurpose
 from app.common.error_message import ErrorMessage
 from app.core import security
-from app.core.exception import ConflictError, NotFoundError, UnauthorizedError
+from app.core.exception import (
+    ConflictError,
+    NotFoundError,
+    UnauthorizedError,
+    ValidationError,
+)
 from app.models.user import User
 from app.repository.user import UserRepository
 from app.schemas.user import CreateUserSchema, UpdateUserSchema
+from app.services.email import EmailServices
 from app.services.otp import OTPService
 
 
 class UserService:
     DUMMY_HASH = "$2b$12$eImiTXuWVxfM37uY4JANjQ" + "x" * 31
 
-    def __init__(self, db: AsyncSession, otp_services: OTPService = None):
+    def __init__(
+        self,
+        db: AsyncSession,
+        otp_services: OTPService = None,
+        email_services: EmailServices = None,
+    ):
         self.repository = UserRepository(db)
         self._otp_services = otp_services
+        self._email_services = email_services
 
     async def get(self, id: str) -> User:
         return await self.repository.get(id)
@@ -51,7 +63,8 @@ class UserService:
             user.id, purpose=VerificationPurpose.EMAIL_VERIFY
         )
 
-        print(otp_code)
+        if self._email_services:
+            await self._email_services.send_verify_email(user.email, otp_code)
 
         return user
 
@@ -73,9 +86,13 @@ class UserService:
                 update_data["is_verified"] = False
                 update_data["email_verified"] = False
                 if self._otp_services:
-                    await self._otp_services.generate(
+                    otp_code = await self._otp_services.generate(
                         check_user.id, purpose=VerificationPurpose.EMAIL_VERIFY
                     )
+                    if self._email_services:
+                        await self._email_services.send_verify_email(
+                            email, otp_code
+                        )
 
         if not update_data:
             return check_user
@@ -104,3 +121,20 @@ class UserService:
         if not check:
             raise UnauthorizedError(ErrorMessage.UNAUTHORIZED)
         return await self.repository.update(user_id, {"is_verified": True})
+
+    async def change_password(
+        self, user_id: str, current_password: str, new_password: str
+    ):
+        user = await self.repository.get(user_id)
+
+        is_valid = security.PasswordHelper.verify(
+            current_password.encode(), user.hashed_password
+        )
+
+        if not is_valid:
+            raise ValidationError("Password mismatch")
+
+        pwd_hash = security.PasswordHelper.hash(new_password)
+
+        user = await self.repository.update(user.id, {"hashed_password": pwd_hash})
+        return user
