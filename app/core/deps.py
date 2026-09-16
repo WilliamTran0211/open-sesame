@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Annotated, Optional
 
 from fastapi import Depends
@@ -18,7 +19,8 @@ async def get_redis_client() -> RedisClient:
     return _redis_client
 
 
-async def get_jwt_helper() -> JWTHelper:
+@lru_cache()
+def get_jwt_helper() -> JWTHelper:
     settings = get_settings()
     return JWTHelper(secret_key=settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
