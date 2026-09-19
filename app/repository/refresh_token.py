@@ -18,6 +18,22 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
+    async def revoke_by_client(self, client_id: UUID) -> None:
+        """
+        This using for cases that client was deactivated. 
+        Need to revoke all the token are current available for that client.
+        """
+        stmt = (
+            update(RefreshToken)
+            .where(
+                RefreshToken.client_id == client_id,
+                RefreshToken.is_revoked.is_(False),
+            )
+            .values(is_revoked=True, revoked_at=datetime.now(timezone.utc))
+        )
+        await self.db.execute(stmt)
+        await self.db.flush()
+
     async def revoke_by_family(self, family_id: UUID) -> None:
         stmt = (
             update(RefreshToken)

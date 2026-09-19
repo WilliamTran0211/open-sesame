@@ -59,3 +59,6 @@ class RefreshTokenServices:
 
     async def revoke_chain(self, family_id: UUID) -> None:
         await self.repository.revoke_by_family(family_id)
+
+    async def revoke_by_client(self, client_id: UUID) -> None:
+        await self.repository.revoke_by_client(client_id)

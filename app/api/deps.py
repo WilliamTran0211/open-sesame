@@ -6,8 +6,9 @@ from fastapi import Cookie, Depends, Request
 from app.common.error_message import ErrorMessage
 from app.core.config import get_email_settings
 from app.core.deps import RedisDep
-from app.core.exception import UnauthorizedError
+from app.core.exception import ForbiddenError, UnauthorizedError
 from app.db.deps import DBDep
+from app.models.client import OAuthClient
 from app.models.user import User
 from app.services.access_token import TokenService, get_token_service
 from app.services.auth import AuthService
@@ -61,8 +62,13 @@ def get_auth_services(
     )
 
 
-def get_client_services(db: DBDep) -> OAuthClientService:
-    return OAuthClientService(db)
+def get_client_services(
+    db: DBDep,
+    token_services: Annotated[
+        RefreshTokenServices, Depends(get_refresh_token_services)
+    ],
+) -> OAuthClientService:
+    return OAuthClientService(db, token_services)
 
 
 async def get_current_user(
@@ -104,6 +110,25 @@ async def require_session(
     return await user_session_services.get_user_session(session_id)
 
 
+async def require_superuser(
+    current_user: Annotated[User, Depends(require_session)],
+) -> User:
+    if not current_user.is_superuser:
+        raise ForbiddenError(ErrorMessage.ACCESS_DENIED)
+    return current_user
+
+
+async def get_owned_client(
+    client_id: str,
+    current_user: Annotated[User, Depends(require_session)],
+    client_services: Annotated[OAuthClientService, Depends(get_client_services)],
+) -> OAuthClient:
+    client = await client_services.get_client_by_id(client_id)
+    if client.owner_id != current_user.id and not current_user.is_superuser:
+        raise ForbiddenError(ErrorMessage.ACCESS_DENIED)
+    return client
+
+
 OtpServicesDep = Annotated[OTPService, Depends(get_otp_service)]
 EmailServicesDep = Annotated[EmailServices, Depends(get_email_services)]
 UserServicesDep = Annotated[UserService, Depends(get_user_services)]
@@ -117,3 +142,5 @@ OAuthClientServiceDep = Annotated[OAuthClientService, Depends(get_client_service
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 RequireTokenDep = Annotated[User, Depends(require_token)]
 RequireSessionDep = Annotated[User, Depends(require_session)]
+RequireSuperuserDep = Annotated[User, Depends(require_superuser)]
+OwnedClientDep = Annotated[OAuthClient, Depends(get_owned_client)]
