@@ -120,7 +120,7 @@ class UserService:
         )
         if not check:
             raise UnauthorizedError(ErrorMessage.UNAUTHORIZED)
-        return await self.repository.update(user_id, {"is_verified": True})
+        return await self.repository.update(user_id, is_verified=True)
 
     async def change_password(
         self, user_id: str, current_password: str, new_password: str
@@ -136,5 +136,5 @@ class UserService:
 
         pwd_hash = security.PasswordHelper.hash(new_password)
 
-        user = await self.repository.update(user.id, {"hashed_password": pwd_hash})
+        user = await self.repository.update(user.id, hashed_password=pwd_hash)
         return user
