@@ -1,24 +1,21 @@
 from datetime import datetime, timezone
 from typing import List
-from unittest import result
-from uuid import UUID
 
 from sqlalchemy import Update, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import query
 
 from app.models.user_session import UserSession
 from app.repository.base import BaseRepository
 
 
-class UserSessionRepository:
+class UserSessionRepository(BaseRepository[UserSession]):
     def __init__(self, db: AsyncSession):
         self.db = db
         self.model = UserSession
 
     async def get_by_id(self, session_id: str) -> UserSession:
-        query = select(self.model).where(self.model.session_id == session_id)
-        result = await self.db.execute(query)
+        q = select(self.model).where(self.model.session_id == session_id)
+        result = await self.db.execute(q)
         return result.scalar_one_or_none()
 
     async def get_active_by_user(self, user_id: str) -> List[UserSession]:
@@ -35,7 +32,7 @@ class UserSessionRepository:
     async def terminate_all_by_user(self, user_id: str) -> int:
         current_time = datetime.now(timezone.utc)
 
-        query = (
+        q = (
             Update(self.model)
             .where(
                 self.model.user_id == user_id,
@@ -44,6 +41,6 @@ class UserSessionRepository:
             .values(terminated_at=current_time)
         )
 
-        result = await self.db.execute(query)
+        result = await self.db.execute(q)
         await self.db.flush()
         return result.rowcount

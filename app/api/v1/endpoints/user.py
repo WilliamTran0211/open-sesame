@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.api.deps import (
     CurrentUserDep,
     UserServicesDep,
 )
-from app.models.user import User
 from app.schemas.user import (
     ChangePasswordSchema,
     CreateUserSchema,
@@ -21,7 +20,7 @@ def read_root():
 
 
 @router.get("/me", response_model=UserResponseSchema)
-async def get_me(current_user: User = Depends(CurrentUserDep)):
+async def get_me(current_user: CurrentUserDep):
     return current_user
 
 
@@ -29,7 +28,7 @@ async def get_me(current_user: User = Depends(CurrentUserDep)):
 async def update_me(
     data: UpdateUserSchema,
     user_services: UserServicesDep,
-    current_user: User = Depends(CurrentUserDep),
+    current_user: CurrentUserDep,
 ):
     user = await user_services.update_user(str(current_user.id), data)
     return user
@@ -39,7 +38,7 @@ async def update_me(
 async def change_password(
     data: ChangePasswordSchema,
     user_services: UserServicesDep,
-    current_user: User = Depends(CurrentUserDep),
+    current_user: CurrentUserDep,
 ):
     result = await user_services.change_password(
         user_id=current_user.id,
