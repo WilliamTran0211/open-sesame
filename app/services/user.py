@@ -153,6 +153,41 @@ class UserService:
         if self._email_services:
             await self._email_services.send_verify_email(user.email, otp_code)
 
+    async def request_password_reset(self, email: str) -> None:
+        user = await self.repository.get_by_email(email.lower())
+
+        if not user:
+            return
+
+        if await self._otp_services.is_rate_limited(
+            user.id, VerificationPurpose.PASSWORD_RESET
+        ):
+            raise RateLimitError(ErrorMessage.RATE_LIMITED)
+
+        otp_code = await self._otp_services.generate(
+            user.id, purpose=VerificationPurpose.PASSWORD_RESET
+        )
+
+        if self._email_services:
+            await self._email_services.send_reset_password_email(user.email, otp_code)
+
+    async def confirm_password_reset(
+        self, email: str, otp: str, new_password: str
+    ) -> User:
+        user = await self.repository.get_by_email(email.lower())
+
+        if not user:
+            raise ValidationError(ErrorMessage.INVALID_OTP)
+
+        check = await self._otp_services.verify(
+            user.id, VerificationPurpose.PASSWORD_RESET, otp
+        )
+        if not check:
+            raise ValidationError(ErrorMessage.INVALID_OTP)
+
+        pwd_hash = security.PasswordHelper.hash(new_password)
+        return await self.repository.update(user.id, hashed_password=pwd_hash)
+
     async def change_password(
         self, user_id: str, current_password: str, new_password: str
     ):

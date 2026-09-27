@@ -4,7 +4,12 @@ from app.api.deps import (
     CurrentUserDep,
     UserServicesDep,
 )
-from app.schemas.otp import ResendVerificationSchema, VerifyEmailSchema
+from app.schemas.otp import (
+    ConfirmPasswordResetSchema,
+    RequestPasswordResetSchema,
+    ResendVerificationSchema,
+    VerifyEmailSchema,
+)
 from app.schemas.user import (
     ChangePasswordSchema,
     CreateUserSchema,
@@ -56,8 +61,20 @@ async def register(user_data: CreateUserSchema, user_services: UserServicesDep):
 
 
 @router.post("/reset-password")
-async def reset_password():
-    return {"message": "reset password"}
+async def reset_password(
+    data: RequestPasswordResetSchema, user_services: UserServicesDep
+):
+    await user_services.request_password_reset(data.email)
+    return {"message": "success"}
+
+
+@router.post("/reset-password/confirm", response_model=UserResponseSchema)
+async def confirm_reset_password(
+    data: ConfirmPasswordResetSchema, user_services: UserServicesDep
+):
+    return await user_services.confirm_password_reset(
+        data.email, data.otp, data.new_password
+    )
 
 
 @router.post("/verify", response_model=UserResponseSchema)
@@ -71,7 +88,7 @@ async def resend_verification(
     data: ResendVerificationSchema, user_services: UserServicesDep
 ):
     await user_services.resend_verification(data.email)
-    return {"message": "If the account needs verification, a new code was sent."}
+    return {"message": "success"}
 
 
 @router.get("/list", response_model=list[UserResponseSchema])
