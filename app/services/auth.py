@@ -11,7 +11,7 @@ from app.core.exception import (
     InvalidGrantError,
     InvalidRequestError,
 )
-from app.core.security import TokenHelper
+from app.core.security import SecurityHelper, TokenHelper
 from app.models.client import OAuthClient
 from app.models.user import User
 from app.models.user_session import UserSession
@@ -52,6 +52,12 @@ class AuthService:
 
     async def logout(self, session_id: str) -> None:
         await self.session_services.terminate_session(session_id)
+
+    async def list_sessions(self, user_id: UUID) -> list:
+        return await self.session_services.list_active_sessions(str(user_id))
+
+    async def revoke_all_sessions(self, user_id: UUID) -> None:
+        await self.session_services.terminate_all_session(str(user_id))
 
     async def refresh_token(
         self, raw_token: str, client_id: UUID
@@ -102,6 +108,42 @@ class AuthService:
             expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
         )
         return code
+
+    async def exchange_authorization_code(
+        self,
+        client: OAuthClient,
+        code: str,
+        redirect_uri: str,
+        code_verifier: Optional[str],
+    ) -> tuple[str, str, int]:
+        auth_code = await self.auth_code_repo.get_by_code(code)
+
+        if not auth_code or auth_code.client_id != client.id:
+            raise InvalidGrantError("Invalid authorization code")
+        if auth_code.is_expired or auth_code.is_used:
+            raise InvalidGrantError("Invalid authorization code")
+        if auth_code.redirect_uri != redirect_uri:
+            raise InvalidGrantError("redirect_uri mismatch")
+
+        if auth_code.code_challenge:
+            if not code_verifier or not SecurityHelper.verify_pkce(
+                code_verifier, auth_code.code_challenge
+            ):
+                raise InvalidGrantError("Invalid code_verifier")
+
+        consumed = await self.auth_code_repo.mark_used(auth_code.id)
+        if not consumed:
+            # Race: another request already consumed this code.
+            raise InvalidGrantError("Authorization code already used")
+
+        access_token = self.access_token_service.issue_access_token(
+            auth_code.user_id, client.id, auth_code.scope
+        )
+        raw_refresh, _ = await self.token_services.create_token(
+            auth_code.user_id, client.id
+        )
+
+        return access_token, raw_refresh, self.access_token_service.access_token_expire
 
     def client_credentials(self):
         pass

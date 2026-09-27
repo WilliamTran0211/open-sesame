@@ -16,8 +16,8 @@ from app.core.exception import (
 )
 from app.schemas.token import (
     AuthorizeQueryParams,
-    RefreshTokenRequest,
     RevokeTokenRequest,
+    TokenGrantRequest,
     TokenResponse,
 )
 
@@ -87,7 +87,7 @@ async def authorize_user(
 
 @router.post("/token", response_model=TokenResponse)
 async def token_exchange(
-    body: RefreshTokenRequest,
+    body: TokenGrantRequest,
     auth_service: AuthServicesDep,
     client_service: OAuthClientServiceDep,
 ):
@@ -95,7 +95,7 @@ async def token_exchange(
 
     if not client.is_active:
         raise InvalidClientError(ErrorMessage.INVALID_CLIENT)
-    if not await client_service.validate_grant_type(client, "refresh_token"):
+    if not await client_service.validate_grant_type(client, body.grant_type):
         raise UnauthorizedClientError(ErrorMessage.UNAUTHORIZED_CLIENT)
     if client.client_type == ClientType.CONFIDENTIAL:
         if not body.client_secret or not await client_service.validate_client_secret(
@@ -103,9 +103,16 @@ async def token_exchange(
         ):
             raise InvalidClientError(ErrorMessage.INVALID_CLIENT)
 
-    access_token, raw_refresh, expires_in = await auth_service.refresh_token(
-        body.refresh_token, client.id
-    )
+    if body.grant_type == "refresh_token":
+        access_token, raw_refresh, expires_in = await auth_service.refresh_token(
+            body.refresh_token, client.id
+        )
+    else:
+        access_token, raw_refresh, expires_in = (
+            await auth_service.exchange_authorization_code(
+                client, body.code, body.redirect_uri, body.code_verifier
+            )
+        )
 
     return TokenResponse(
         access_token=access_token,

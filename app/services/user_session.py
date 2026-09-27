@@ -58,6 +58,9 @@ class UserSessionService:
 
         return user
 
+    async def list_active_sessions(self, user_id: str) -> list[UserSession]:
+        return await self.session_repo.get_active_by_user(user_id)
+
     async def terminate_session(self, session_id: str) -> None:
         session = await self.session_repo.get_by_id(session_id)
         if not session:

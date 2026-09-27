@@ -3,10 +3,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Request, Response
 
-from app.api.deps import AuthServicesDep
+from app.api.deps import AuthServicesDep, RequireSessionDep
 from app.common.error_message import ErrorMessage
 from app.core.config import get_settings
 from app.core.exception import ForbiddenError
+from app.schemas.session import SessionResponseSchema
 from app.schemas.user import UserLogin, UserResponseSchema
 
 router = APIRouter()
@@ -57,4 +58,21 @@ async def logout(
         raise ForbiddenError(ErrorMessage.ACCESS_DENIED)
 
     await auth_service.logout(session_id)
+    return {"message": "success"}
+
+
+@router.get("/sessions", response_model=list[SessionResponseSchema])
+async def list_sessions(
+    current_user: RequireSessionDep,
+    auth_service: AuthServicesDep,
+):
+    return await auth_service.list_sessions(current_user.id)
+
+
+@router.post("/sessions/revoke-all")
+async def revoke_all_sessions(
+    current_user: RequireSessionDep,
+    auth_service: AuthServicesDep,
+):
+    await auth_service.revoke_all_sessions(current_user.id)
     return {"message": "success"}
