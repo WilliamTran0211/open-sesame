@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 
 class AuthorizationCode(UUIDMixin, TimestampMixin, Base):
-
     __tablename__ = "authorization_codes"
 
     code: Mapped[str] = mapped_column(
@@ -38,6 +37,13 @@ class AuthorizationCode(UUIDMixin, TimestampMixin, Base):
     redirect_uri: Mapped[str] = mapped_column(Text, nullable=False)
 
     code_challenge: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+
+    code_challenge_method: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        default="S256",
+        server_default="S256",
+        nullable=True,
+    )
 
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

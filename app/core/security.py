@@ -89,3 +89,10 @@ class SecurityHelper:
     @staticmethod
     def secure_compare(a: str, b: str) -> bool:
         return hmac.compare_digest(a.encode(), b.encode())
+
+    @staticmethod
+    def verify_pkce(code_verifier: str, code_challenge: str) -> bool:
+        """RFC 7636 S256 verification only — 'plain' method is not supported."""
+        digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+        computed_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+        return hmac.compare_digest(computed_challenge, code_challenge)

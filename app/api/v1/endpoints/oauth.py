@@ -1,8 +1,132 @@
-from fastapi import APIRouter
+from typing import Annotated
+from urllib.parse import urlencode
+
+from fastapi import APIRouter, Cookie, Query, Request
+from fastapi.responses import RedirectResponse
+
+from app.api.deps import AuthServicesDep, OAuthClientServiceDep, UserSessionServicesDep
+from app.common.enum import ClientType
+from app.common.error_message import ErrorMessage
+from app.core.config import get_settings
+from app.core.exception import (
+    InvalidClientError,
+    InvalidRequestError,
+    NotFoundError,
+    UnauthorizedClientError,
+)
+from app.schemas.token import (
+    AuthorizeQueryParams,
+    RefreshTokenRequest,
+    RevokeTokenRequest,
+    TokenResponse,
+)
 
 router = APIRouter()
+
+
+def _append_query(url: str, params: dict) -> str:
+    separator = "&" if "?" in url else "?"
+    return f"{url}{separator}{urlencode(params)}"
 
 
 @router.get("/")
 def read_root():
     return {"message": "Open Sesame, OAuth service!"}
+
+
+@router.get("/authorize")
+async def authorize_user(
+    params: Annotated[AuthorizeQueryParams, Query()],
+    request: Request,
+    client_service: OAuthClientServiceDep,
+    auth_service: AuthServicesDep,
+    user_session_services: UserSessionServicesDep,
+    session_id: Annotated[str | None, Cookie()] = None,
+):
+    client = await client_service.get_client_by_id(params.client_id)
+
+    if not client.is_active:
+        raise InvalidClientError(ErrorMessage.INVALID_CLIENT)
+    if not await client_service.validate_redirect_uri(client, params.redirect_uri):
+        raise InvalidRequestError(ErrorMessage.INVALID_REQUEST)
+    if not await client_service.validate_grant_type(client, "authorization_code"):
+        raise UnauthorizedClientError(ErrorMessage.UNAUTHORIZED_CLIENT)
+
+    user = None
+    if session_id:
+        try:
+            user = await user_session_services.get_user_session(session_id)
+        except NotFoundError:
+            user = None
+
+    if not user:
+        login_url = _append_query(
+            get_settings().FRONTEND_LOGIN_URL, {"redirect_uri": str(request.url)}
+        )
+        return RedirectResponse(login_url)
+
+    try:
+        code = await auth_service.authorize(
+            client=client,
+            user_id=user.id,
+            redirect_uri=params.redirect_uri,
+            scope=params.scope,
+            code_challenge=params.code_challenge,
+        )
+    except InvalidRequestError:
+        error_url = _append_query(
+            params.redirect_uri, {"error": "invalid_request", "state": params.state}
+        )
+        return RedirectResponse(error_url)
+
+    success_url = _append_query(
+        params.redirect_uri, {"code": code, "state": params.state}
+    )
+    return RedirectResponse(success_url)
+
+
+@router.post("/token", response_model=TokenResponse)
+async def token_exchange(
+    body: RefreshTokenRequest,
+    auth_service: AuthServicesDep,
+    client_service: OAuthClientServiceDep,
+):
+    client = await client_service.get_client_by_id(body.client_id)
+
+    if not client.is_active:
+        raise InvalidClientError(ErrorMessage.INVALID_CLIENT)
+    if not await client_service.validate_grant_type(client, "refresh_token"):
+        raise UnauthorizedClientError(ErrorMessage.UNAUTHORIZED_CLIENT)
+    if client.client_type == ClientType.CONFIDENTIAL:
+        if not body.client_secret or not await client_service.validate_client_secret(
+            client, body.client_secret
+        ):
+            raise InvalidClientError(ErrorMessage.INVALID_CLIENT)
+
+    access_token, raw_refresh, expires_in = await auth_service.refresh_token(
+        body.refresh_token, client.id
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        expires_in=expires_in,
+        refresh_token=raw_refresh,
+    )
+
+
+@router.post("/token/revoke")
+async def revoke_token(
+    body: RevokeTokenRequest,
+    auth_service: AuthServicesDep,
+    client_service: OAuthClientServiceDep,
+):
+    client = await client_service.get_client_by_id(body.client_id)
+
+    if client.client_type == ClientType.CONFIDENTIAL:
+        if not body.client_secret or not await client_service.validate_client_secret(
+            client, body.client_secret
+        ):
+            raise InvalidClientError(ErrorMessage.INVALID_CLIENT)
+
+    await auth_service.revoke_token(body.token)
+    return {"message": "success"}

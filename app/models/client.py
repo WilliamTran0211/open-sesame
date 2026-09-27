@@ -1,7 +1,7 @@
 import uuid
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import ARRAY, Boolean, Enum, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import ARRAY, Boolean, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -68,8 +68,6 @@ class OAuthClient(UUIDMixin, TimestampMixin, Base):
         back_populates="client",
         cascade="all, delete-orphan",
     )
-
-    __table_args__ = (Index("ix_oauth_clients_client_id", "client_id"),)
 
     def __repr__(self) -> str:
         return f"<OAuthClient id={self.id} name={self.name!r} type={self.client_type}>"

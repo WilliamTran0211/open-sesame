@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # CORS
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
+    # OAuth /authorize — where to send the browser when there's no session
+    FRONTEND_LOGIN_URL: str = "http://localhost:3000/login"
+
     # OPTIONAL SETTINGS
     DEBUG: bool = False
 
