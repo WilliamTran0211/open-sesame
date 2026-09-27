@@ -58,6 +58,10 @@ class AccessDeniedError(AppError):
     pass
 
 
+class EmailNotVerifiedError(AppError):
+    pass
+
+
 class ServerError(AppError):
     pass
 
@@ -83,6 +87,7 @@ _STATUS_MAP: dict[type, int] = {
     ForbiddenError: status.HTTP_403_FORBIDDEN,
     ValidationError: status.HTTP_400_BAD_REQUEST,
     RateLimitError: status.HTTP_429_TOO_MANY_REQUESTS,
+    EmailNotVerifiedError: status.HTTP_403_FORBIDDEN,
 }
 
 # OAuth2 standard error codes (RFC 6749 §5.2)
@@ -104,6 +109,7 @@ _GENERAL_ERROR_CODE: dict[type, str] = {
     ForbiddenError: "forbidden",
     ValidationError: "validation_error",
     RateLimitError: "rate_limit",
+    EmailNotVerifiedError: "email_not_verified",
 }
 
 

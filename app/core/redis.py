@@ -37,3 +37,9 @@ class RedisClient:
 
     async def delete(self, key: str) -> None:
         return await self.client.delete(key)
+
+    async def incr(self, key: str) -> int:
+        return await self.client.incr(key)
+
+    async def expire(self, key: str, ttl: int) -> None:
+        return await self.client.expire(key, ttl)

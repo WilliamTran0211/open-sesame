@@ -18,6 +18,10 @@ class ErrorMessage(str, Enum):
     UNAUTHORIZED = "Authentication required"
     RATE_LIMITED = "Too many requests"
 
+    # Verification
+    INVALID_OTP = "Invalid or expired verification code"
+    EMAIL_NOT_VERIFIED = "Email address has not been verified"
+
     # Server errors
     SERVER_ERROR = "Internal server error"
     SERVICE_UNAVAILABLE = "Service temporarily unavailable"

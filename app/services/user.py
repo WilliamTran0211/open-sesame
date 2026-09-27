@@ -9,6 +9,7 @@ from app.core import security
 from app.core.exception import (
     ConflictError,
     NotFoundError,
+    RateLimitError,
     UnauthorizedError,
     ValidationError,
 )
@@ -114,13 +115,43 @@ class UserService:
 
         return user
 
-    async def verify_email(self, user_id: str, otp: str) -> User:
+    async def verify_email(self, email: str, otp: str) -> User:
+        user = await self.repository.get_by_email(email.lower())
+
+        if not user:
+            raise ValidationError(ErrorMessage.INVALID_OTP)
+
+        if user.is_verified:
+            return user
+
         check = await self._otp_services.verify(
-            user_id, VerificationPurpose.EMAIL_VERIFY, otp
+            user.id, VerificationPurpose.EMAIL_VERIFY, otp
         )
         if not check:
-            raise UnauthorizedError(ErrorMessage.UNAUTHORIZED)
-        return await self.repository.update(user_id, is_verified=True)
+            raise ValidationError(ErrorMessage.INVALID_OTP)
+
+        return await self.repository.update(
+            user.id, email_verified=True, is_verified=True
+        )
+
+    async def resend_verification(self, email: str) -> None:
+        user = await self.repository.get_by_email(email.lower())
+
+        # Stay silent for unknown or already-verified emails to avoid leaking accounts.
+        if not user or user.is_verified:
+            return
+
+        if await self._otp_services.is_rate_limited(
+            user.id, VerificationPurpose.EMAIL_VERIFY
+        ):
+            raise RateLimitError(ErrorMessage.RATE_LIMITED)
+
+        otp_code = await self._otp_services.generate(
+            user.id, purpose=VerificationPurpose.EMAIL_VERIFY
+        )
+
+        if self._email_services:
+            await self._email_services.send_verify_email(user.email, otp_code)
 
     async def change_password(
         self, user_id: str, current_password: str, new_password: str
