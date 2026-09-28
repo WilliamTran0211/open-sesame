@@ -2,8 +2,11 @@ from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.error_message import ErrorMessage
+from app.core.exception import ConflictError
 from app.models.base import Base
 
 ModelType = TypeVar("ModelType", bound=Base)
@@ -42,7 +45,11 @@ class BaseRepository(Generic[ModelType]):
     async def create(self, **kwargs) -> ModelType:
         instance = self.model(**kwargs)
         self.db.add(instance)
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError:
+            await self.db.rollback()
+            raise ConflictError(ErrorMessage.CONFLICT)
         return instance
 
     async def update(self, id: UUID, **kwargs) -> Optional[ModelType]:
@@ -53,8 +60,12 @@ class BaseRepository(Generic[ModelType]):
             .values(**kwargs)
             .returning(self.model)
         )
-        result = await self.db.execute(query)
-        await self.db.flush()
+        try:
+            result = await self.db.execute(query)
+            await self.db.flush()
+        except IntegrityError:
+            await self.db.rollback()
+            raise ConflictError(ErrorMessage.CONFLICT)
         return result.scalar_one_or_none()
 
     async def delete(self, id: UUID) -> bool:
