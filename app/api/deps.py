@@ -16,6 +16,7 @@ from app.services.client import OAuthClientService
 from app.services.email import EmailServices
 from app.services.otp import OTPService
 from app.services.refresh_token import RefreshTokenServices
+from app.services.scope import ScopeServices
 from app.services.user import UserService
 from app.services.user_session import UserSessionService
 
@@ -60,6 +61,10 @@ def get_auth_services(
     return AuthService(
         db, user_services, session_services, token_services, access_token_service
     )
+
+
+def get_scope_services(db: DBDep) -> ScopeServices:
+    return ScopeServices(db)
 
 
 def get_client_services(
@@ -138,6 +143,7 @@ UserSessionServicesDep = Annotated[
     UserSessionService, Depends(get_user_session_services)
 ]
 OAuthClientServiceDep = Annotated[OAuthClientService, Depends(get_client_services)]
+ScopeServicesDep = Annotated[ScopeServices, Depends(get_scope_services)]
 
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 RequireTokenDep = Annotated[User, Depends(require_token)]
