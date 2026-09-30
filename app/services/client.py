@@ -5,19 +5,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enum import ClientType
 from app.common.error_message import ErrorMessage
-from app.core.exception import InvalidRequestError, NotFoundError
+from app.core.exception import InvalidRequestError, InvalidScopeError, NotFoundError
 from app.core.security import SecurityHelper
 from app.models.client import OAuthClient
 from app.repository.client import OAuthClientRepository
 from app.repository.user import UserRepository
 from app.services.refresh_token import RefreshTokenServices
+from app.services.scope import ScopeServices
 
 
 class OAuthClientService:
-    def __init__(self, db: AsyncSession, refresh_token_services: RefreshTokenServices):
+    def __init__(
+        self,
+        db: AsyncSession,
+        refresh_token_services: RefreshTokenServices,
+        scope_services: ScopeServices,
+    ):
         self.repository = OAuthClientRepository(db)
         self.user_repository = UserRepository(db)
         self.refresh_token_services = refresh_token_services
+        self.scope_services = scope_services
 
     async def create_client(
         self,
@@ -29,7 +36,11 @@ class OAuthClientService:
         require_pkce: bool = True,
         access_token_ttl: Optional[int] = None,
         refresh_token_ttl: Optional[int] = None,
+        allowed_scopes: Optional[list[str]] = None,
     ) -> OAuthClient:
+        allowed_scopes = allowed_scopes or []
+        await self.scope_services.validate_scope_names(allowed_scopes)
+
         client_id = secrets.token_urlsafe(32)
         client_secret = (
             secrets.token_urlsafe(48)
@@ -52,6 +63,7 @@ class OAuthClientService:
             name=name,
             redirect_uris=redirect_uris,
             grant_types=grant_types,
+            allowed_scopes=allowed_scopes,
             require_pkce=require_pkce,
             access_token_ttl=access_token_ttl,
             refresh_token_ttl=refresh_token_ttl,
@@ -85,6 +97,16 @@ class OAuthClientService:
     async def validate_grant_type(self, client: OAuthClient, grant_type: str) -> bool:
         return grant_type in client.grant_types
 
+    async def validate_scope(self, client: OAuthClient, requested_scope: str) -> str:
+        """Intersect the requested scope with what the client is allowed.
+        Per RFC 6749 §3.3 the server may narrow the granted scope — only
+        reject outright when there's no overlap at all."""
+        requested = set(requested_scope.split())
+        granted = requested & set(client.allowed_scopes)
+        if requested and not granted:
+            raise InvalidScopeError(ErrorMessage.INVALID_SCOPE)
+        return " ".join(sorted(granted))
+
     async def update_client(
         self,
         client_id: str,
@@ -95,6 +117,8 @@ class OAuthClientService:
             data["client_secret_hash"] = SecurityHelper.hash_sha256(
                 data.pop("client_secret")
             )
+        if "allowed_scopes" in data and data["allowed_scopes"] is not None:
+            await self.scope_services.validate_scope_names(data["allowed_scopes"])
         return await self.repository.update(client.id, **data)
 
     async def deactivate_client(self, client_id: str) -> OAuthClient:

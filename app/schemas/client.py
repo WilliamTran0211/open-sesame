@@ -14,6 +14,10 @@ class ClientBaseSchema(BaseModel):
         default=["authorization_code", "refresh_token"],
         description="Grant types this client is allowed to use",
     )
+    allowed_scopes: List[str] = Field(
+        default_factory=list,
+        description="Scopes this client may request (must already exist in /scopes)",
+    )
     client_type: ClientType = Field(
         default=ClientType.CONFIDENTIAL, description="confidential or public"
     )
@@ -37,6 +41,7 @@ class UpdateClientSchema(BaseModel):
     name: Optional[str] = Field(default=None, max_length=255)
     redirect_uris: Optional[List[str]] = None
     grant_types: Optional[List[str]] = None
+    allowed_scopes: Optional[List[str]] = None
     client_type: Optional[ClientType] = None
     require_pkce: Optional[bool] = None
     access_token_ttl: Optional[int] = None
@@ -50,6 +55,7 @@ class ClientResponseSchema(BaseModel):
     client_type: ClientType
     redirect_uris: List[str]
     grant_types: List[str]
+    allowed_scopes: List[str]
     require_pkce: bool
     access_token_ttl: Optional[int]
     refresh_token_ttl: Optional[int]

@@ -72,8 +72,9 @@ def get_client_services(
     token_services: Annotated[
         RefreshTokenServices, Depends(get_refresh_token_services)
     ],
+    scope_services: Annotated[ScopeServices, Depends(get_scope_services)],
 ) -> OAuthClientService:
-    return OAuthClientService(db, token_services)
+    return OAuthClientService(db, token_services, scope_services)
 
 
 async def get_current_user(

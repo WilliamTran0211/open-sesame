@@ -41,6 +41,9 @@ class OAuthClient(UUIDMixin, TimestampMixin, Base):
         nullable=False,
         default=lambda: ["authorization_code", "refresh_token"],
     )
+    allowed_scopes: Mapped[List[str]] = mapped_column(
+        ARRAY(String), nullable=False, default=list
+    )
     require_pkce: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Token TTL overrides in seconds

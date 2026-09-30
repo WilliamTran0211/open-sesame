@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.exception import (
     InvalidClientError,
     InvalidRequestError,
+    InvalidScopeError,
     NotFoundError,
     UnauthorizedClientError,
 )
@@ -52,6 +53,16 @@ async def authorize_user(
     if not await client_service.validate_grant_type(client, "authorization_code"):
         raise UnauthorizedClientError(ErrorMessage.UNAUTHORIZED_CLIENT)
 
+    # redirect_uri is verified from here on — safe to report scope errors by
+    # redirecting back to the client instead of raising directly.
+    try:
+        granted_scope = await client_service.validate_scope(client, params.scope)
+    except InvalidScopeError:
+        error_url = _append_query(
+            params.redirect_uri, {"error": "invalid_scope", "state": params.state}
+        )
+        return RedirectResponse(error_url)
+
     user = None
     if session_id:
         try:
@@ -70,7 +81,7 @@ async def authorize_user(
             client=client,
             user_id=user.id,
             redirect_uri=params.redirect_uri,
-            scope=params.scope,
+            scope=granted_scope,
             code_challenge=params.code_challenge,
         )
     except InvalidRequestError:
