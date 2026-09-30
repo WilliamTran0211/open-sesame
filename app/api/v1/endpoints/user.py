@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.deps import (
     CurrentUserDep,
+    RequireSuperuserDep,
     UserServicesDep,
 )
 from app.schemas.otp import (
@@ -92,6 +93,6 @@ async def resend_verification(
 
 
 @router.get("/list", response_model=list[UserResponseSchema])
-async def get_user_list(user_services: UserServicesDep):
+async def get_user_list(user_services: UserServicesDep, _: RequireSuperuserDep):
     list_users = await user_services.get_multi()
     return list_users
