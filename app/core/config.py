@@ -24,10 +24,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE: int = 900  # seconds
 
     # CORS
-    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    BACKEND_CORS_ORIGINS: list[str] = ["https://localhost:3000"]
 
     # OAuth /authorize — where to send the browser when there's no session
-    FRONTEND_LOGIN_URL: str = "http://localhost:3000/login"
+    FRONTEND_LOGIN_URL: str = "https://localhost:3000/login"
 
     # OPTIONAL SETTINGS
     DEBUG: bool = False
