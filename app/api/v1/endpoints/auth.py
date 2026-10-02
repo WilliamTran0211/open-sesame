@@ -5,6 +5,7 @@ from fastapi import APIRouter, Cookie, Request, Response
 
 from app.api.deps import AuthServicesDep, RequireSessionDep
 from app.common.error_message import ErrorMessage
+from app.core.rate_limit import rate_limit
 from app.core.config import get_settings
 from app.core.exception import ForbiddenError
 from app.schemas.mfa import MfaChallengeResponseSchema, MfaVerifySchema
@@ -34,7 +35,9 @@ def _set_session_cookie(response: Response, session_id: str) -> None:
     )
 
 
-@router.post("/login")
+@router.post(
+    "/login", dependencies=[rate_limit("login", identifier_field="email")]
+)
 async def login(
     body: UserLogin,
     request: Request,
@@ -58,7 +61,10 @@ async def login(
     return UserResponseSchema.model_validate(user)
 
 
-@router.post("/login/2fa")
+@router.post(
+    "/login/2fa",
+    dependencies=[rate_limit("login-2fa", identifier_field="challenge_id")],
+)
 async def login_2fa(
     body: MfaVerifySchema,
     response: Response,

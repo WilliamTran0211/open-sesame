@@ -6,6 +6,7 @@ from app.api.deps import (
     UserServicesDep,
 )
 from app.common.enum import MFAMethod
+from app.core.rate_limit import rate_limit
 from app.schemas.mfa import (
     MfaCodeSchema,
     MfaConfirmResponseSchema,
@@ -107,7 +108,11 @@ async def disable_mfa(
     return {"message": "success"}
 
 
-@router.post("/register", response_model=UserResponseSchema)
+@router.post(
+    "/register",
+    response_model=UserResponseSchema,
+    dependencies=[rate_limit("register", identifier_field="email")],
+)
 async def register(user_data: CreateUserSchema, user_services: UserServicesDep):
     user = await user_services.create_user(user_data)
     return user
@@ -121,7 +126,11 @@ async def reset_password(
     return {"message": "success"}
 
 
-@router.post("/reset-password/confirm", response_model=UserResponseSchema)
+@router.post(
+    "/reset-password/confirm",
+    response_model=UserResponseSchema,
+    dependencies=[rate_limit("reset-password", identifier_field="email")],
+)
 async def confirm_reset_password(
     data: ConfirmPasswordResetSchema, user_services: UserServicesDep
 ):
@@ -130,13 +139,20 @@ async def confirm_reset_password(
     )
 
 
-@router.post("/verify", response_model=UserResponseSchema)
+@router.post(
+    "/verify",
+    response_model=UserResponseSchema,
+    dependencies=[rate_limit("verify-email", identifier_field="email")],
+)
 async def verify_email(data: VerifyEmailSchema, user_services: UserServicesDep):
     user = await user_services.verify_email(data.email, data.otp)
     return user
 
 
-@router.post("/verify/resend")
+@router.post(
+    "/verify/resend",
+    dependencies=[rate_limit("verify-email", identifier_field="email")],
+)
 async def resend_verification(
     data: ResendVerificationSchema, user_services: UserServicesDep
 ):
