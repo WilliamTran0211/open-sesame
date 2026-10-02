@@ -14,7 +14,6 @@ from app.repository.user_session import UserSessionRepository
 
 
 class UserSessionService:
-
     def __init__(self, db: AsyncSession, redis_client: RedisClient):
         self.session_repo = UserSessionRepository(db)
         self.user_repo = UserRepository(db)
@@ -40,7 +39,9 @@ class UserSessionService:
         new_session = await self.session_repo.create(**data)
 
         key = f"session:{new_session.session_id}"
-        await self.redis_client.setex(key, 24 * 3600, str(user.id))
+        await self.redis_client.setex(
+            key, get_settings().SESSION_EXPIRE_DAYS, str(user.id)
+        )
 
         return new_session
 
