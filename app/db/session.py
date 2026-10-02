@@ -24,8 +24,8 @@ class DatabaseSessionManager:
         self._engine = create_async_engine(
             database_url,
             pool_pre_ping=True,  # checking connection
-            pool_size=10,  # current connection in pool
-            max_overflow=20,  # max connection
+            pool_size=15,  # current connection in pool
+            max_overflow=5,  # max connection
             pool_recycle=3600,  # Recycle connection after 1h
             echo=settings.DEBUG,  # Log SQL queries for DEBUG
         )
