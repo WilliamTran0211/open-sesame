@@ -54,8 +54,11 @@ class EmailServices:
         recipients = [email_to] + ([email_cc] if email_cc else [])
 
         with SMTP(self.config.SMTP_HOST, self.config.SMTP_PORT) as server:
-            server.starttls()
-            server.login(self.config.SMTP_USER, self.config.SMTP_PASSWORD)
+            if self.config.SMTP_TLS:
+                server.starttls()
+            # Local catch-all servers (Mailpit) accept mail without credentials.
+            if self.config.SMTP_USER:
+                server.login(self.config.SMTP_USER, self.config.SMTP_PASSWORD)
             server.sendmail(
                 self.config.EMAILS_FROM_EMAIL, recipients, message.as_string()
             )

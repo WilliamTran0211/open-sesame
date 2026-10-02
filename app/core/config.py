@@ -63,8 +63,11 @@ class EmailConfigSettings(BaseSettings):
 
     SMTP_HOST: str
     SMTP_PORT: int = 587
-    SMTP_USER: str
-    SMTP_PASSWORD: str
+    # STARTTLS stays mandatory unless explicitly disabled (e.g. a local Mailpit),
+    # so a server that drops the extension can't silently downgrade delivery.
+    SMTP_TLS: bool = True
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
     EMAILS_FROM_EMAIL: str
     EMAILS_FROM_NAME: str = "My Application"
 
