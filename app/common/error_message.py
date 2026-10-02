@@ -22,6 +22,13 @@ class ErrorMessage(str, Enum):
     INVALID_OTP = "Invalid or expired verification code"
     EMAIL_NOT_VERIFIED = "Email address has not been verified"
 
+    # 2FA
+    MFA_ALREADY_ENABLED = "Two-factor authentication is already enabled"
+    MFA_NOT_ENABLED = "Two-factor authentication is not enabled"
+    MFA_SETUP_NOT_STARTED = "Start 2FA setup first"
+    INVALID_MFA_CODE = "Invalid authentication code"
+    MFA_CHALLENGE_EXPIRED = "Login challenge expired or invalid — please log in again"
+
     # Server errors
     SERVER_ERROR = "Internal server error"
     SERVICE_UNAVAILABLE = "Service temporarily unavailable"

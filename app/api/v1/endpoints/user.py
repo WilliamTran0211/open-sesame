@@ -5,6 +5,13 @@ from app.api.deps import (
     RequireSuperuserDep,
     UserServicesDep,
 )
+from app.common.enum import MFAMethod
+from app.schemas.mfa import (
+    MfaCodeSchema,
+    MfaConfirmResponseSchema,
+    MfaSetupRequestSchema,
+    MfaSetupResponseSchema,
+)
 from app.schemas.otp import (
     ConfirmPasswordResetSchema,
     RequestPasswordResetSchema,
@@ -53,6 +60,51 @@ async def change_password(
         new_password=data.new_password,
     )
     return result
+
+
+@router.post("/me/2fa/setup", response_model=MfaSetupResponseSchema)
+async def setup_mfa(
+    data: MfaSetupRequestSchema,
+    user_services: UserServicesDep,
+    current_user: CurrentUserDep,
+):
+    result = await user_services.setup_mfa(str(current_user.id), MFAMethod(data.method))
+    return MfaSetupResponseSchema(
+        method=result.method.value,
+        secret=result.secret,
+        provisioning_uri=result.provisioning_uri,
+    )
+
+
+@router.post("/me/2fa/confirm", response_model=MfaConfirmResponseSchema)
+async def confirm_mfa(
+    data: MfaCodeSchema,
+    user_services: UserServicesDep,
+    current_user: CurrentUserDep,
+):
+    recovery_codes = await user_services.confirm_mfa(str(current_user.id), data.code)
+    return MfaConfirmResponseSchema(recovery_codes=recovery_codes)
+
+
+@router.post("/me/2fa/request-code")
+async def request_mfa_code(
+    user_services: UserServicesDep,
+    current_user: CurrentUserDep,
+):
+    """Send a fresh email OTP — needed before confirm/disable when the
+    method is EMAIL. No-op for TOTP."""
+    await user_services.request_mfa_code(str(current_user.id))
+    return {"message": "success"}
+
+
+@router.post("/me/2fa/disable")
+async def disable_mfa(
+    data: MfaCodeSchema,
+    user_services: UserServicesDep,
+    current_user: CurrentUserDep,
+):
+    await user_services.disable_mfa(str(current_user.id), data.code)
+    return {"message": "success"}
 
 
 @router.post("/register", response_model=UserResponseSchema)

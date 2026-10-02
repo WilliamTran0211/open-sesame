@@ -59,7 +59,12 @@ def get_auth_services(
 ) -> AuthService:
     session_services = UserSessionService(db, redis_client)
     return AuthService(
-        db, user_services, session_services, token_services, access_token_service
+        db,
+        redis_client,
+        user_services,
+        session_services,
+        token_services,
+        access_token_service,
     )
 
 

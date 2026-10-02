@@ -7,8 +7,10 @@ from app.api.deps import AuthServicesDep, RequireSessionDep
 from app.common.error_message import ErrorMessage
 from app.core.config import get_settings
 from app.core.exception import ForbiddenError
+from app.schemas.mfa import MfaChallengeResponseSchema, MfaVerifySchema
 from app.schemas.session import SessionResponseSchema
 from app.schemas.user import UserLogin, UserResponseSchema
+from app.services.auth import MfaChallenge
 
 router = APIRouter()
 
@@ -19,6 +21,17 @@ logger = logging.getLogger("open_sesame_logger")
 def read_root():
     logger.debug("Root endpoint accessed")
     return {"message": "Open Sesame, Authentication!"}
+
+
+def _set_session_cookie(response: Response, session_id: str) -> None:
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=get_settings().session_max_age_seconds,
+    )
 
 
 @router.post("/login")
@@ -35,17 +48,26 @@ async def login(
         "user_agent": request.headers.get("user-agent"),
     }
 
-    user, session = await auth_service.login(**data)
+    result = await auth_service.login(**data)
 
-    response.set_cookie(
-        key="session_id",
-        value=session.session_id,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=get_settings().session_max_age_seconds,
+    if isinstance(result, MfaChallenge):
+        return MfaChallengeResponseSchema(challenge_id=result.challenge_id)
+
+    user, session = result
+    _set_session_cookie(response, session.session_id)
+    return UserResponseSchema.model_validate(user)
+
+
+@router.post("/login/2fa")
+async def login_2fa(
+    body: MfaVerifySchema,
+    response: Response,
+    auth_service: AuthServicesDep,
+):
+    user, session = await auth_service.complete_mfa_challenge(
+        body.challenge_id, body.code
     )
-
+    _set_session_cookie(response, session.session_id)
     return UserResponseSchema.model_validate(user)
 
 

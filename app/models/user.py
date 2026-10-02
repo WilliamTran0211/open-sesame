@@ -1,12 +1,10 @@
 from datetime import datetime
 from typing import List, Optional
-from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Index, String, func, select
-from sqlalchemy.exc import NoResultFound
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import ARRAY, Boolean, DateTime, Enum, Index, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.common.enum import MFAMethod
 from app.models.authorization_code import AuthorizationCode
 from app.models.base import Base, TimestampMixin, UUIDMixin
 from app.models.client import OAuthClient
@@ -33,6 +31,16 @@ class User(UUIDMixin, TimestampMixin, Base):
         default=False,
         nullable=False,
         comment="Platform-level admin. NOT an OAuth scope.",
+    )
+
+    # MFA
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    mfa_method: Mapped[Optional[MFAMethod]] = mapped_column(
+        Enum(MFAMethod, name="mfa_method_enum"), nullable=True
+    )
+    mfa_secret: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    mfa_recovery_codes: Mapped[List[str]] = mapped_column(
+        ARRAY(String), nullable=False, default=list
     )
 
     owned_clients: Mapped[List["OAuthClient"]] = relationship(
