@@ -6,7 +6,7 @@ from app.api.deps import (
     UserServicesDep,
 )
 from app.common.enum import MFAMethod
-from app.core.rate_limit import rate_limit
+from app.core.rate_limit import rate_limit, rate_limit_by_user
 from app.schemas.mfa import (
     MfaCodeSchema,
     MfaConfirmResponseSchema,
@@ -77,7 +77,11 @@ async def setup_mfa(
     )
 
 
-@router.post("/me/2fa/confirm", response_model=MfaConfirmResponseSchema)
+@router.post(
+    "/me/2fa/confirm",
+    response_model=MfaConfirmResponseSchema,
+    dependencies=[rate_limit_by_user("2fa-confirm")],
+)
 async def confirm_mfa(
     data: MfaCodeSchema,
     user_services: UserServicesDep,
@@ -98,7 +102,10 @@ async def request_mfa_code(
     return {"message": "success"}
 
 
-@router.post("/me/2fa/disable")
+@router.post(
+    "/me/2fa/disable",
+    dependencies=[rate_limit_by_user("2fa-disable")],
+)
 async def disable_mfa(
     data: MfaCodeSchema,
     user_services: UserServicesDep,
@@ -142,7 +149,7 @@ async def confirm_reset_password(
 @router.post(
     "/verify",
     response_model=UserResponseSchema,
-    dependencies=[rate_limit("verify-email", identifier_field="email")],
+    dependencies=[rate_limit("verify-emai", identifier_field="email")],
 )
 async def verify_email(data: VerifyEmailSchema, user_services: UserServicesDep):
     user = await user_services.verify_email(data.email, data.otp)
