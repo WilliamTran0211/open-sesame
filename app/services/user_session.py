@@ -40,7 +40,7 @@ class UserSessionService:
 
         key = f"session:{new_session.session_id}"
         await self.redis_client.setex(
-            key, get_settings().SESSION_EXPIRE_DAYS, str(user.id)
+            key, get_settings().session_max_age_seconds, str(user.id)
         )
 
         return new_session
