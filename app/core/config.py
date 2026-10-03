@@ -26,8 +26,10 @@ class Settings(BaseSettings):
     # CORS
     BACKEND_CORS_ORIGINS: list[str] = ["https://localhost:3000"]
 
-    # OAuth /authorize — where to send the browser when there's no session
+    # OAuth /authorize for no session
     FRONTEND_LOGIN_URL: str = "https://localhost:3000/login"
+    # OAuth /authorize for no stored consent
+    FRONTEND_CONSENT_URL: str = "https://localhost:3000/oauth/authorize"
 
     # OPTIONAL SETTINGS
     DEBUG: bool = False
@@ -56,15 +58,8 @@ def get_settings() -> Settings:
 
 
 class EmailConfigSettings(BaseSettings):
-    """
-    Pydantic model for SMTP server configuration.
-    Reads settings from environment variables.
-    """
-
     SMTP_HOST: str
     SMTP_PORT: int = 587
-    # STARTTLS stays mandatory unless explicitly disabled (e.g. a local Mailpit),
-    # so a server that drops the extension can't silently downgrade delivery.
     SMTP_TLS: bool = True
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""

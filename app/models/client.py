@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.common.enum import ClientType
 from app.models.authorization_code import AuthorizationCode
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.oauth_consent import OAuthConsent
 from app.models.refresh_token import RefreshToken
 
 if TYPE_CHECKING:
@@ -68,6 +69,11 @@ class OAuthClient(UUIDMixin, TimestampMixin, Base):
     )
     refresh_tokens: Mapped[List["RefreshToken"]] = relationship(
         "RefreshToken",
+        back_populates="client",
+        cascade="all, delete-orphan",
+    )
+    consents: Mapped[List["OAuthConsent"]] = relationship(
+        "OAuthConsent",
         back_populates="client",
         cascade="all, delete-orphan",
     )

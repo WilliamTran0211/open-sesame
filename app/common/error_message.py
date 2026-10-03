@@ -11,6 +11,7 @@ class ErrorMessage(str, Enum):
     UNAUTHORIZED_CLIENT = "Client not authorized"
     INVALID_SCOPE = "Invalid scope requested"
     ACCESS_DENIED = "Access denied by resource owner"
+    UNSUPPORTED_MEDIA_TYPE = "Content-Type must be application/json"
 
     # Common errors
     NOT_FOUND = "Resource not found"

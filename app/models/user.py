@@ -8,6 +8,7 @@ from app.common.enum import MFAMethod
 from app.models.authorization_code import AuthorizationCode
 from app.models.base import Base, TimestampMixin, UUIDMixin
 from app.models.client import OAuthClient
+from app.models.oauth_consent import OAuthConsent
 from app.models.refresh_token import RefreshToken
 from app.models.user_session import UserSession
 
@@ -54,6 +55,9 @@ class User(UUIDMixin, TimestampMixin, Base):
     )
     sessions: Mapped[List["UserSession"]] = relationship(
         "UserSession", back_populates="user", cascade="all, delete-orphan"
+    )
+    consents: Mapped[List["OAuthConsent"]] = relationship(
+        "OAuthConsent", back_populates="user", cascade="all, delete-orphan"
     )
 
     __table_args__ = (

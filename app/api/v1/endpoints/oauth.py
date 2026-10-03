@@ -1,10 +1,16 @@
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Cookie, Query, Request
+from fastapi import APIRouter, Cookie, Depends, Query, Request
 from fastapi.responses import RedirectResponse
 
-from app.api.deps import AuthServicesDep, OAuthClientServiceDep, UserSessionServicesDep
+from app.api.deps import (
+    AuthServicesDep,
+    OAuthClientServiceDep,
+    OAuthConsentServicesDep,
+    RequireSessionDep,
+    UserSessionServicesDep,
+)
 from app.common.enum import ClientType
 from app.common.error_message import ErrorMessage
 from app.core.config import get_settings
@@ -14,9 +20,12 @@ from app.core.exception import (
     InvalidScopeError,
     NotFoundError,
     UnauthorizedClientError,
+    UnsupportedMediaTypeError,
 )
 from app.schemas.token import (
     AuthorizeQueryParams,
+    ConsentRequest,
+    ConsentResponse,
     RevokeTokenRequest,
     TokenGrantRequest,
     TokenResponse,
@@ -42,21 +51,17 @@ async def authorize_user(
     client_service: OAuthClientServiceDep,
     auth_service: AuthServicesDep,
     user_session_services: UserSessionServicesDep,
+    consent_service: OAuthConsentServicesDep,
     session_id: Annotated[str | None, Cookie()] = None,
 ):
     client = await client_service.get_client_by_id(params.client_id)
 
-    if not client.is_active:
-        raise InvalidClientError(ErrorMessage.INVALID_CLIENT)
-    if not await client_service.validate_redirect_uri(client, params.redirect_uri):
-        raise InvalidRequestError(ErrorMessage.INVALID_REQUEST)
-    if not await client_service.validate_grant_type(client, "authorization_code"):
-        raise UnauthorizedClientError(ErrorMessage.UNAUTHORIZED_CLIENT)
-
-    # redirect_uri is verified from here on — safe to report scope errors by
-    # redirecting back to the client instead of raising directly.
+    # redirect_uri đã được xác thực trong validate_authorize_request
+    # có thể báo lỗi scope bằng cách chuyển hướng về client thay vì báo lỗi trực tiếp.
     try:
-        granted_scope = await client_service.validate_scope(client, params.scope)
+        granted_scope = await client_service.validate_authorize_request(
+            client, params.redirect_uri, params.scope
+        )
     except InvalidScopeError:
         error_url = _append_query(
             params.redirect_uri, {"error": "invalid_scope", "state": params.state}
@@ -76,6 +81,14 @@ async def authorize_user(
         )
         return RedirectResponse(login_url)
 
+    # Chưa allow thì không tự động cấp authorization code.
+    # URl tạo sẵn đến endpoint này phải đưa người dùng đến màn hình allow.
+    if not await consent_service.has_consent(user.id, client.id, granted_scope):
+        consent_url = _append_query(
+            get_settings().FRONTEND_CONSENT_URL, dict(request.query_params)
+        )
+        return RedirectResponse(consent_url)
+
     try:
         code = await auth_service.authorize(
             client=client,
@@ -94,6 +107,43 @@ async def authorize_user(
         params.redirect_uri, {"code": code, "state": params.state}
     )
     return RedirectResponse(success_url)
+
+
+async def _require_json_content_type(request: Request) -> None:
+    content_type = request.headers.get("content-type", "")
+    if not content_type.startswith("application/json"):
+        raise UnsupportedMediaTypeError(ErrorMessage.UNSUPPORTED_MEDIA_TYPE)
+
+
+@router.post(
+    "/consent",
+    response_model=ConsentResponse,
+    dependencies=[Depends(_require_json_content_type)],
+)
+async def consent(
+    body: ConsentRequest,
+    current_user: RequireSessionDep,
+    client_service: OAuthClientServiceDep,
+    auth_service: AuthServicesDep,
+    consent_service: OAuthConsentServicesDep,
+):
+    client = await client_service.get_client_by_id(body.client_id)
+    granted_scope = await client_service.validate_authorize_request(
+        client, body.redirect_uri, body.scope
+    )
+
+    await consent_service.grant_consent(current_user.id, client.id, granted_scope)
+
+    code = await auth_service.authorize(
+        client=client,
+        user_id=current_user.id,
+        redirect_uri=body.redirect_uri,
+        scope=granted_scope,
+        code_challenge=body.code_challenge,
+    )
+
+    redirect_to = _append_query(body.redirect_uri, {"code": code, "state": body.state})
+    return ConsentResponse(redirect_to=redirect_to)
 
 
 @router.post("/token", response_model=TokenResponse)
@@ -119,10 +169,12 @@ async def token_exchange(
             body.refresh_token, client.id
         )
     else:
-        access_token, raw_refresh, expires_in = (
-            await auth_service.exchange_authorization_code(
-                client, body.code, body.redirect_uri, body.code_verifier
-            )
+        (
+            access_token,
+            raw_refresh,
+            expires_in,
+        ) = await auth_service.exchange_authorization_code(
+            client, body.code, body.redirect_uri, body.code_verifier
         )
 
     return TokenResponse(

@@ -5,7 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.enum import ClientType
 from app.common.error_message import ErrorMessage
-from app.core.exception import InvalidRequestError, InvalidScopeError, NotFoundError
+from app.core.exception import (
+    InvalidClientError,
+    InvalidRequestError,
+    InvalidScopeError,
+    NotFoundError,
+    UnauthorizedClientError,
+)
 from app.core.security import SecurityHelper
 from app.models.client import OAuthClient
 from app.repository.client import OAuthClientRepository
@@ -106,6 +112,17 @@ class OAuthClientService:
         if requested and not granted:
             raise InvalidScopeError(ErrorMessage.INVALID_SCOPE)
         return " ".join(sorted(granted))
+
+    async def validate_authorize_request(
+        self, client: OAuthClient, redirect_uri: str, scope: str
+    ) -> str:
+        if not client.is_active:
+            raise InvalidClientError(ErrorMessage.INVALID_CLIENT)
+        if not await self.validate_redirect_uri(client, redirect_uri):
+            raise InvalidRequestError(ErrorMessage.INVALID_REQUEST)
+        if not await self.validate_grant_type(client, "authorization_code"):
+            raise UnauthorizedClientError(ErrorMessage.UNAUTHORIZED_CLIENT)
+        return await self.validate_scope(client, scope)
 
     async def update_client(
         self,

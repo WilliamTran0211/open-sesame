@@ -19,6 +19,19 @@ class AuthorizeQueryParams(BaseModel):
     code_challenge_method: Optional[Literal["S256"]] = None
 
 
+class ConsentRequest(BaseModel):
+    client_id: str
+    redirect_uri: str
+    scope: str = ""
+    state: str
+    code_challenge: Optional[str] = None
+    code_challenge_method: Optional[Literal["S256"]] = None
+
+
+class ConsentResponse(BaseModel):
+    redirect_to: str
+
+
 class RefreshTokenRequest(BaseModel):
     grant_type: Literal["refresh_token"]
     refresh_token: str

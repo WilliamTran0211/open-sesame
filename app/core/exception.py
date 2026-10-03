@@ -1,8 +1,6 @@
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from app import logger
-
 
 class AppError(Exception):
     def __init__(self, message: str):
@@ -58,6 +56,10 @@ class AccessDeniedError(AppError):
     pass
 
 
+class UnsupportedMediaTypeError(AppError):
+    pass
+
+
 class EmailNotVerifiedError(AppError):
     pass
 
@@ -78,6 +80,7 @@ _STATUS_MAP: dict[type, int] = {
     UnauthorizedClientError: status.HTTP_403_FORBIDDEN,
     InvalidScopeError: status.HTTP_400_BAD_REQUEST,
     AccessDeniedError: status.HTTP_403_FORBIDDEN,
+    UnsupportedMediaTypeError: status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
     ServerError: status.HTTP_500_INTERNAL_SERVER_ERROR,
     TemporarilyUnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,
     # General errors
@@ -110,6 +113,7 @@ _GENERAL_ERROR_CODE: dict[type, str] = {
     ValidationError: "validation_error",
     RateLimitError: "rate_limit",
     EmailNotVerifiedError: "email_not_verified",
+    UnsupportedMediaTypeError: "unsupported_media_type",
 }
 
 
