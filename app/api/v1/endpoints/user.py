@@ -149,7 +149,7 @@ async def confirm_reset_password(
 @router.post(
     "/verify",
     response_model=UserResponseSchema,
-    dependencies=[rate_limit("verify-emai", identifier_field="email")],
+    dependencies=[rate_limit("verify-email", identifier_field="email")],
 )
 async def verify_email(data: VerifyEmailSchema, user_services: UserServicesDep):
     user = await user_services.verify_email(data.email, data.otp)
