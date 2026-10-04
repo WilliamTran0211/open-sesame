@@ -4,7 +4,6 @@ from redis.asyncio import ConnectionPool, Redis
 
 
 class RedisClient:
-
     def __init__(self, redis_url: str = "redis://localhost:6379/0"):
         self.redis_url = redis_url
         self._pool: Optional[ConnectionPool] = None
@@ -43,3 +42,11 @@ class RedisClient:
 
     async def expire(self, key: str, ttl: int) -> None:
         return await self.client.expire(key, ttl)
+
+    async def acquire_lock(self, key: str, ttl: int) -> bool:
+        """
+        Sử dụng cho job clean up , trong trường hợp mutiple-worker thì các worker đều chạy process riêng
+        dẫn đến job clean up có thể chạy 4 lần cùng lúc (không sai nhưng tốn tài nguyên)
+        SET NX EX — True nếu worker này có được lock, False nếu worker khác đang giữ.
+        """
+        return bool(await self.client.set(key, "1", nx=True, ex=ttl))

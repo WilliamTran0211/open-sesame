@@ -8,7 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.core.deps import get_redis_client
 from app.core.exception import register_exception_handlers
+from app.core.scheduler import scheduler, setup_scheduler
 from app.db.session import session_manager
 from app.logger.config import LOGGING_CONFIG
 from app.middleware.auth import AuthMiddleware
@@ -25,7 +27,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     print("Starting application...")
 
     settings = get_settings()
+    # Init DB
     session_manager.init(database_url=settings.database_url)
+
+    # Init Redis
+    redis_client = await get_redis_client()
+
+    # setup job
+    setup_scheduler(redis_client)
 
     if await session_manager.health_check():
         print("Database connected")
@@ -34,6 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         raise RuntimeError("Cannot connect to database")
     yield
 
+    scheduler.shutdown(wait=False)
     await session_manager.close()
 
 

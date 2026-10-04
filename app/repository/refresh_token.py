@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.refresh_token import RefreshToken
@@ -20,7 +20,7 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
 
     async def revoke_by_client(self, client_id: UUID) -> None:
         """
-        This using for cases that client was deactivated. 
+        This using for cases that client was deactivated.
         Need to revoke all the token are current available for that client.
         """
         stmt = (
@@ -62,3 +62,12 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         result = await self.db.execute(stmt)
         await self.db.flush()
         return result.rowcount > 0
+
+    async def delete_expired(self) -> int:
+
+        stmt = delete(RefreshToken).where(
+            RefreshToken.expires_at < datetime.now(timezone.utc)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        return result.rowcount

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.authorization_code import AuthorizationCode
@@ -30,3 +30,11 @@ class AuthorizationCodeRepository(BaseRepository[AuthorizationCode]):
         result = await self.db.execute(stmt)
         await self.db.flush()
         return result.rowcount > 0
+
+    async def delete_expired(self) -> int:
+        stmt = delete(AuthorizationCode).where(
+            AuthorizationCode.expires_at < datetime.now(timezone.utc)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        return result.rowcount
