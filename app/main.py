@@ -12,6 +12,7 @@ from app.core.exception import register_exception_handlers
 from app.db.session import session_manager
 from app.logger.config import LOGGING_CONFIG
 from app.middleware.auth import AuthMiddleware
+from app.middleware.csrf import CSRFMiddleware
 from app.middleware.logging import LoggingMiddleware
 from app.services.access_token import get_token_service
 
@@ -45,6 +46,8 @@ def create_app() -> FastAPI:
     app.add_middleware(LoggingMiddleware)
 
     app.add_middleware(AuthMiddleware, token_service=get_token_service())
+
+    app.add_middleware(CSRFMiddleware)
 
     # CORS
     app.add_middleware(

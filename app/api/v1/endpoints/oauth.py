@@ -1,7 +1,7 @@
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Cookie, Depends, Query, Request
+from fastapi import APIRouter, Cookie, Query, Request
 from fastapi.responses import RedirectResponse
 
 from app.api.deps import (
@@ -20,7 +20,6 @@ from app.core.exception import (
     InvalidScopeError,
     NotFoundError,
     UnauthorizedClientError,
-    UnsupportedMediaTypeError,
 )
 from app.schemas.token import (
     AuthorizeQueryParams,
@@ -109,17 +108,7 @@ async def authorize_user(
     return RedirectResponse(success_url)
 
 
-async def _require_json_content_type(request: Request) -> None:
-    content_type = request.headers.get("content-type", "")
-    if not content_type.startswith("application/json"):
-        raise UnsupportedMediaTypeError(ErrorMessage.UNSUPPORTED_MEDIA_TYPE)
-
-
-@router.post(
-    "/consent",
-    response_model=ConsentResponse,
-    dependencies=[Depends(_require_json_content_type)],
-)
+@router.post("/consent", response_model=ConsentResponse)
 async def consent(
     body: ConsentRequest,
     current_user: RequireSessionDep,

@@ -16,7 +16,10 @@ def rate_limit(
         ip = request.client.host
         identifier = ip
         if identifier_field:
-            body = await request.json()
+            try:
+                body = await request.json()
+            except ValueError:
+                body = {}
             identifier = f"{ip}:{body.get(identifier_field, '')}"
 
         key = f"rate_limit:{key_prefix}:{identifier}"
