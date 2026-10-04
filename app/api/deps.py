@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Cookie, Depends, Request
+from fastapi import BackgroundTasks, Cookie, Depends, Request
 
 from app.common.error_message import ErrorMessage
 from app.core.config import get_email_settings
@@ -26,8 +26,8 @@ def get_otp_service(redis_client: RedisDep) -> OTPService:
     return OTPService(redis_client)
 
 
-def get_email_services() -> EmailServices:
-    return EmailServices(get_email_settings())
+def get_email_services(background_tasks: BackgroundTasks) -> EmailServices:
+    return EmailServices(get_email_settings(), background_tasks)
 
 
 def get_user_services(

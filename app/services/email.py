@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -7,6 +6,7 @@ from pathlib import Path
 from smtplib import SMTP
 from typing import Optional
 
+from fastapi import BackgroundTasks
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.core.config import EmailConfigSettings
@@ -17,8 +17,9 @@ TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "common" / "template"
 
 
 class EmailServices:
-    def __init__(self, config: EmailConfigSettings):
+    def __init__(self, config: EmailConfigSettings, background_tasks: BackgroundTasks):
         self.config = config
+        self.background_tasks = background_tasks
         self.env = Environment(
             loader=FileSystemLoader(TEMPLATE_DIR),
             autoescape=select_autoescape(["html"]),
@@ -63,6 +64,22 @@ class EmailServices:
                 self.config.EMAILS_FROM_EMAIL, recipients, message.as_string()
             )
 
+    def _send_and_log(
+        self,
+        email_to: str,
+        subject: str,
+        html_body: str,
+        attachment: Optional[bytes] = None,
+        attachment_filename: Optional[str] = None,
+        email_cc: Optional[str] = None,
+    ) -> None:
+        try:
+            self._send_sync(
+                email_to, subject, html_body, attachment, attachment_filename, email_cc
+            )
+        except Exception:
+            logger.exception("Failed to send email to %s", email_to)
+
     async def send_email(
         self,
         email_to: str,
@@ -74,20 +91,18 @@ class EmailServices:
         email_cc: Optional[str] = None,
     ) -> None:
         html_body = self.env.get_template(html_template).render(**template_body)
-
-        try:
-            await asyncio.to_thread(
-                self._send_sync,
-                email_to,
-                subject,
-                html_body,
-                attachment,
-                attachment_filename,
-                email_cc,
-            )
-        except Exception:
-            logger.exception("Failed to send email to %s", email_to)
-            raise
+        # Schedule chạy sau khi respose http — caller không cần đợi SMTP nửa
+        # đồng thời ngăn luôn timing side-channel attack trên các endpoint auth
+        # tránh lộ việc email có tồn tại trong db hay không thông qua thời gian phản hồi
+        self.background_tasks.add_task(
+            self._send_and_log,
+            email_to,
+            subject,
+            html_body,
+            attachment,
+            attachment_filename,
+            email_cc,
+        )
 
     async def send_verify_email(self, email_to: str, otp_code: str) -> None:
         await self.send_email(

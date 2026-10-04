@@ -100,9 +100,7 @@ class UserService:
                         check_user.id, purpose=VerificationPurpose.EMAIL_VERIFY
                     )
                     if self._email_services:
-                        await self._email_services.send_verify_email(
-                            email, otp_code
-                        )
+                        await self._email_services.send_verify_email(email, otp_code)
 
         if not update_data:
             return check_user
@@ -147,6 +145,9 @@ class UserService:
         user = await self.repository.get_by_email(email.lower())
 
         # Stay silent for unknown or already-verified emails to avoid leaking accounts.
+        # EmailServices backgrounds the actual SMTP call, so this branch and the
+        # early-return above take the same time — otherwise awaiting SMTP here is
+        # a timing side-channel that lets a caller tell real emails from unknown ones.
         if not user or user.is_verified:
             return
 
