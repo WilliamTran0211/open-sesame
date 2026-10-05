@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.deps import (
     CurrentUserDep,
+    RequireSessionDep,
     RequireSuperuserDep,
     UserServicesDep,
 )
@@ -43,7 +44,7 @@ async def get_me(current_user: CurrentUserDep):
 async def update_me(
     data: UpdateUserSchema,
     user_services: UserServicesDep,
-    current_user: CurrentUserDep,
+    current_user: RequireSessionDep,
 ):
     user = await user_services.update_user(str(current_user.id), data)
     return user
@@ -53,7 +54,7 @@ async def update_me(
 async def change_password(
     data: ChangePasswordSchema,
     user_services: UserServicesDep,
-    current_user: CurrentUserDep,
+    current_user: RequireSessionDep,
 ):
     result = await user_services.change_password(
         user_id=current_user.id,
@@ -67,7 +68,7 @@ async def change_password(
 async def setup_mfa(
     data: MfaSetupRequestSchema,
     user_services: UserServicesDep,
-    current_user: CurrentUserDep,
+    current_user: RequireSessionDep,
 ):
     result = await user_services.setup_mfa(str(current_user.id), MFAMethod(data.method))
     return MfaSetupResponseSchema(
@@ -85,7 +86,7 @@ async def setup_mfa(
 async def confirm_mfa(
     data: MfaCodeSchema,
     user_services: UserServicesDep,
-    current_user: CurrentUserDep,
+    current_user: RequireSessionDep,
 ):
     recovery_codes = await user_services.confirm_mfa(str(current_user.id), data.code)
     return MfaConfirmResponseSchema(recovery_codes=recovery_codes)
@@ -94,7 +95,7 @@ async def confirm_mfa(
 @router.post("/me/2fa/request-code")
 async def request_mfa_code(
     user_services: UserServicesDep,
-    current_user: CurrentUserDep,
+    current_user: RequireSessionDep,
 ):
     """Send a fresh email OTP — needed before confirm/disable when the
     method is EMAIL. No-op for TOTP."""
@@ -109,7 +110,7 @@ async def request_mfa_code(
 async def disable_mfa(
     data: MfaCodeSchema,
     user_services: UserServicesDep,
-    current_user: CurrentUserDep,
+    current_user: RequireSessionDep,
 ):
     await user_services.disable_mfa(str(current_user.id), data.code)
     return {"message": "success"}
