@@ -21,6 +21,7 @@ from app.core.exception import (
     NotFoundError,
     UnauthorizedClientError,
 )
+from app.core.rate_limit import rate_limit
 from app.schemas.token import (
     AuthorizeQueryParams,
     ConsentRequest,
@@ -135,7 +136,11 @@ async def consent(
     return ConsentResponse(redirect_to=redirect_to)
 
 
-@router.post("/token", response_model=TokenResponse)
+@router.post(
+    "/token",
+    response_model=TokenResponse,
+    dependencies=[rate_limit("token", identifier_field="client_id")],
+)
 async def token_exchange(
     body: TokenGrantRequest,
     auth_service: AuthServicesDep,
@@ -173,7 +178,10 @@ async def token_exchange(
     )
 
 
-@router.post("/token/revoke")
+@router.post(
+    "/token/revoke",
+    dependencies=[rate_limit("token-revoke", identifier_field="client_id")],
+)
 async def revoke_token(
     body: RevokeTokenRequest,
     auth_service: AuthServicesDep,
