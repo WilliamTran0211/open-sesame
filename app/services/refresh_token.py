@@ -41,6 +41,8 @@ class RefreshTokenServices:
         revoked_now = await self.repository.revoke_if_active(old_token.id)
         if not revoked_now:
             await self.revoke_chain(old_token.family_id)
+            # Commit before raising so the revocation is not rolled back.
+            await self.repository.db.commit()
             raise InvalidGrantError("Refresh token reuse detected")
 
         raw_token = self.token_helper.generate()

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.api.deps import (
     CurrentUserDep,
@@ -24,6 +24,7 @@ from app.schemas.user import (
     ChangePasswordSchema,
     CreateUserSchema,
     UpdateUserSchema,
+    UserInfoResponseSchema,
     UserResponseSchema,
 )
 
@@ -35,9 +36,20 @@ def read_root():
     return {"message": "Open Sesame, User service!"}
 
 
-@router.get("/me", response_model=UserResponseSchema)
-async def get_me(current_user: CurrentUserDep):
-    return current_user
+@router.get("/me")
+async def get_me(current_user: CurrentUserDep, request: Request):
+    # Bearer token only gets fields allowed by its scope.
+    payload = request.state.token_payload
+    if payload is None:
+        return UserResponseSchema.model_validate(current_user)
+
+    scopes = set(payload.scope.split())
+    return UserInfoResponseSchema(
+        sub=current_user.id,
+        email=current_user.email if "email" in scopes else None,
+        email_verified=current_user.email_verified if "email" in scopes else None,
+        name=current_user.full_name if "profile" in scopes else None,
+    )
 
 
 @router.patch("/me", response_model=UserResponseSchema)

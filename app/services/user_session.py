@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.error_message import ErrorMessage
 from app.core.config import get_settings
-from app.core.exception import NotFoundError
+from app.core.exception import NotFoundError, UnauthorizedError
 from app.core.redis import RedisClient
 from app.models.user import User
 from app.models.user_session import UserSession
@@ -50,12 +50,12 @@ class UserSessionService:
         user_id_in_session = await self.redis_client.get(key)
 
         if not user_id_in_session:
-            raise NotFoundError(ErrorMessage.NOT_FOUND)
+            raise UnauthorizedError(ErrorMessage.UNAUTHORIZED)
 
         user = await self.user_repo.get(user_id_in_session)
 
         if not user:
-            raise NotFoundError(ErrorMessage.NOT_FOUND)
+            raise UnauthorizedError(ErrorMessage.UNAUTHORIZED)
 
         return user
 

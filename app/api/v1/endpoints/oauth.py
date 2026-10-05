@@ -18,8 +18,8 @@ from app.core.exception import (
     InvalidClientError,
     InvalidRequestError,
     InvalidScopeError,
-    NotFoundError,
     UnauthorizedClientError,
+    UnauthorizedError,
 )
 from app.core.deps import RedisDep
 from app.core.rate_limit import record_auth_failure
@@ -73,7 +73,7 @@ async def authorize_user(
     if session_id:
         try:
             user = await user_session_services.get_user_session(session_id)
-        except NotFoundError:
+        except UnauthorizedError:
             user = None
 
     if not user:

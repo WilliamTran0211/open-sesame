@@ -23,6 +23,15 @@ class UserResponseSchema(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserInfoResponseSchema(BaseModel):
+    """User info filtered by token scope."""
+
+    sub: uuid.UUID
+    email: Optional[EmailStr] = None
+    email_verified: Optional[bool] = None
+    name: Optional[str] = None
+
+
 class UserLogin(BaseModel):
     email: EmailStr = Field(..., description="Email for login")
     password: str = Field(..., description="Password for login")
