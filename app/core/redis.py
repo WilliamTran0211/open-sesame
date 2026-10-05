@@ -43,6 +43,9 @@ class RedisClient:
     async def expire(self, key: str, ttl: int) -> None:
         return await self.client.expire(key, ttl)
 
+    async def ttl(self, key: str) -> int:
+        return await self.client.ttl(key)
+
     async def acquire_lock(self, key: str, ttl: int) -> bool:
         """
         Sử dụng cho job clean up , trong trường hợp mutiple-worker thì các worker đều chạy process riêng

@@ -49,7 +49,9 @@ class ValidationError(AppError):
 
 
 class RateLimitError(AppError):
-    pass
+    def __init__(self, message: str, retry_after: int | None = None):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class AccessDeniedError(AppError):
@@ -117,10 +119,13 @@ _GENERAL_ERROR_CODE: dict[type, str] = {
 }
 
 
-def _make_response(status: int, error: str, description: str) -> JSONResponse:
+def _make_response(
+    status: int, error: str, description: str, headers: dict | None = None
+) -> JSONResponse:
     return JSONResponse(
         status_code=status,
         content={"error": error, "error_description": description},
+        headers=headers,
     )
 
 
@@ -134,7 +139,11 @@ def register_exception_handlers(app: FastAPI) -> None:
             or _GENERAL_ERROR_CODE.get(type(exc))
             or type(exc).__name__.lower()
         )
-        return _make_response(status, error_code, exc.message)
+        headers = None
+        retry_after = getattr(exc, "retry_after", None)
+        if retry_after is not None:
+            headers = {"Retry-After": str(retry_after)}
+        return _make_response(status, error_code, exc.message, headers)
 
     @app.exception_handler(Exception)
     async def handle_unhandled(_: Request, exc: Exception) -> JSONResponse:

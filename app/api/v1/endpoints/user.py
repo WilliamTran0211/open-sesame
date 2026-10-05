@@ -138,7 +138,13 @@ async def register(user_data: CreateUserSchema, user_services: UserServicesDep):
     return user
 
 
-@router.post("/reset-password")
+@router.post(
+    "/reset-password",
+    dependencies=[
+        rate_limit("reset-password-request", identifier_field="email"),
+        rate_limit("reset-password-request-ip"),
+    ],
+)
 async def reset_password(
     data: RequestPasswordResetSchema, user_services: UserServicesDep
 ):
