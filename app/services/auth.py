@@ -120,22 +120,23 @@ class AuthService:
         await self.session_services.terminate_all_session(str(user_id))
 
     async def refresh_token(
-        self, raw_token: str, client_id: UUID
+        self, raw_token: str, client: OAuthClient
     ) -> tuple[str, str, int]:
         token_hash = TokenHelper.hash(raw_token)
         old_token = await self.token_services.repository.get_by_hash(token_hash)
 
-        if not old_token or old_token.client_id != client_id:
+        if not old_token or old_token.client_id != client.id:
             raise InvalidGrantError("Invalid refresh token")
 
         raw_refresh, new_token = await self.token_services.rotate_token(
-            old_token, client_id
+            old_token, client.id
         )
+        ttl = client.access_token_ttl or self.access_token_service.access_token_expire
         access_token = self.access_token_service.issue_access_token(
-            new_token.user_id, client_id
+            new_token.user_id, client.id, new_token.scope, ttl_seconds=ttl
         )
 
-        return access_token, raw_refresh, self.access_token_service.access_token_expire
+        return access_token, raw_refresh, ttl
 
     async def revoke_token(self, raw_token: str) -> None:
         token_hash = TokenHelper.hash(raw_token)
@@ -196,14 +197,15 @@ class AuthService:
             # Race: another request already consumed this code.
             raise InvalidGrantError("Authorization code already used")
 
+        ttl = client.access_token_ttl or self.access_token_service.access_token_expire
         access_token = self.access_token_service.issue_access_token(
-            auth_code.user_id, client.id, auth_code.scope
+            auth_code.user_id, client.id, auth_code.scope, ttl_seconds=ttl
         )
         raw_refresh, _ = await self.token_services.create_token(
-            auth_code.user_id, client.id
+            auth_code.user_id, client.id, scope=auth_code.scope
         )
 
-        return access_token, raw_refresh, self.access_token_service.access_token_expire
+        return access_token, raw_refresh, ttl
 
     def client_credentials(self):
         pass

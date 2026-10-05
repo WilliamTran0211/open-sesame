@@ -44,6 +44,8 @@ class RefreshToken(UUIDMixin, TimestampMixin, Base):
         index=True,
     )
 
+    scope: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
     family_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), nullable=False, default=uuid.uuid4, index=True
     )

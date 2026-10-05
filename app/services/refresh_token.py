@@ -16,7 +16,7 @@ class RefreshTokenServices:
         self.token_helper = TokenHelper
 
     async def create_token(
-        self, user_id: UUID, client_id: UUID, ttl_days: int = 7
+        self, user_id: UUID, client_id: UUID, scope: str = "", ttl_days: int = 7
     ) -> Tuple[str, RefreshToken]:
         raw_token = self.token_helper.generate()
         token_hash = self.token_helper.hash(raw_token)
@@ -26,6 +26,7 @@ class RefreshTokenServices:
             token_hash=token_hash,
             user_id=user_id,
             client_id=client_id,
+            scope=scope,
             expires_at=exp_at,
         )
 
@@ -50,6 +51,7 @@ class RefreshTokenServices:
             token_hash=token_hash,
             user_id=old_token.user_id,
             client_id=client_id,
+            scope=old_token.scope,
             expires_at=exp_at,
             family_id=old_token.family_id,
             parent_id=old_token.id,

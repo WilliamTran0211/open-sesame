@@ -160,7 +160,7 @@ async def token_exchange(
 
     if body.grant_type == "refresh_token":
         access_token, raw_refresh, expires_in = await auth_service.refresh_token(
-            body.refresh_token, client.id
+            body.refresh_token, client
         )
     else:
         (

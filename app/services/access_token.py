@@ -26,11 +26,17 @@ class TokenService:
         self.access_token_expire = access_token_expire
 
     def issue_access_token(
-        self, user_id: UUID, client_id: Optional[UUID] = None, scope: str = ""
+        self,
+        user_id: UUID,
+        client_id: Optional[UUID] = None,
+        scope: str = "",
+        ttl_seconds: Optional[int] = None,
     ) -> str:
         return self.jwt_helper.create(
             subject=str(user_id),
-            expires_delta=timedelta(seconds=self.access_token_expire),
+            expires_delta=timedelta(
+                seconds=ttl_seconds if ttl_seconds is not None else self.access_token_expire
+            ),
             token_type="access",
             client_id=str(client_id) if client_id else None,
             scope=scope,
