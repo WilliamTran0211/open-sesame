@@ -4,6 +4,7 @@ from app.api.deps import CurrentUserDep
 from app.common.error_message import ErrorMessage
 from app.core.deps import RedisDep
 from app.core.exception import RateLimitError
+from app.core.redis import RedisClient
 
 
 def rate_limit(
@@ -30,6 +31,24 @@ def rate_limit(
             raise RateLimitError(ErrorMessage.RATE_LIMITED)
 
     return Depends(dependency)
+
+
+async def record_auth_failure(
+    request: Request,
+    redis_client: RedisClient,
+    key_prefix: str,
+    identifier: str,
+    limit: int = 20,
+    window_seconds: int = 300,
+) -> None:
+    """Only count failed auth attempts."""
+    ip = request.client.host
+    key = f"rate_limit:{key_prefix}:{ip}:{identifier}"
+    count = await redis_client.incr(key)
+    if count == 1:
+        await redis_client.expire(key, window_seconds)
+    if count > limit:
+        raise RateLimitError(ErrorMessage.RATE_LIMITED)
 
 
 def rate_limit_by_user(key_prefix: str, limit: int = 20, window_seconds: int = 300):

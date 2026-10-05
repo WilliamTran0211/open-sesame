@@ -21,7 +21,8 @@ from app.core.exception import (
     NotFoundError,
     UnauthorizedClientError,
 )
-from app.core.rate_limit import rate_limit
+from app.core.deps import RedisDep
+from app.core.rate_limit import record_auth_failure
 from app.schemas.token import (
     AuthorizeQueryParams,
     ConsentRequest,
@@ -136,15 +137,13 @@ async def consent(
     return ConsentResponse(redirect_to=redirect_to)
 
 
-@router.post(
-    "/token",
-    response_model=TokenResponse,
-    dependencies=[rate_limit("token", identifier_field="client_id")],
-)
+@router.post("/token", response_model=TokenResponse)
 async def token_exchange(
     body: TokenGrantRequest,
     auth_service: AuthServicesDep,
     client_service: OAuthClientServiceDep,
+    request: Request,
+    redis_client: RedisDep,
 ):
     client = await client_service.get_client_by_id(body.client_id)
 
@@ -156,6 +155,7 @@ async def token_exchange(
         if not body.client_secret or not await client_service.validate_client_secret(
             client, body.client_secret
         ):
+            await record_auth_failure(request, redis_client, "token", body.client_id)
             raise InvalidClientError(ErrorMessage.INVALID_CLIENT)
 
     if body.grant_type == "refresh_token":
@@ -178,14 +178,13 @@ async def token_exchange(
     )
 
 
-@router.post(
-    "/token/revoke",
-    dependencies=[rate_limit("token-revoke", identifier_field="client_id")],
-)
+@router.post("/token/revoke")
 async def revoke_token(
     body: RevokeTokenRequest,
     auth_service: AuthServicesDep,
     client_service: OAuthClientServiceDep,
+    request: Request,
+    redis_client: RedisDep,
 ):
     client = await client_service.get_client_by_id(body.client_id)
 
@@ -193,6 +192,9 @@ async def revoke_token(
         if not body.client_secret or not await client_service.validate_client_secret(
             client, body.client_secret
         ):
+            await record_auth_failure(
+                request, redis_client, "token-revoke", body.client_id
+            )
             raise InvalidClientError(ErrorMessage.INVALID_CLIENT)
 
     await auth_service.revoke_token(body.token)
