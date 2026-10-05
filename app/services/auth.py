@@ -129,7 +129,7 @@ class AuthService:
             raise InvalidGrantError("Invalid refresh token")
 
         raw_refresh, new_token = await self.token_services.rotate_token(
-            old_token, client.id
+            old_token, client.id, ttl_seconds=client.refresh_token_ttl
         )
         ttl = client.access_token_ttl or self.access_token_service.access_token_expire
         access_token = self.access_token_service.issue_access_token(
@@ -202,7 +202,10 @@ class AuthService:
             auth_code.user_id, client.id, auth_code.scope, ttl_seconds=ttl
         )
         raw_refresh, _ = await self.token_services.create_token(
-            auth_code.user_id, client.id, scope=auth_code.scope
+            auth_code.user_id,
+            client.id,
+            scope=auth_code.scope,
+            ttl_seconds=client.refresh_token_ttl,
         )
 
         return access_token, raw_refresh, ttl
