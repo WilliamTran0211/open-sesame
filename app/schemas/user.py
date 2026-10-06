@@ -18,6 +18,7 @@ class UserResponseSchema(BaseModel):
     is_active: bool
     is_verified: bool
     is_superuser: bool
+    mfa_enabled: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
