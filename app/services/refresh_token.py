@@ -74,3 +74,6 @@ class RefreshTokenServices:
 
     async def revoke_by_client(self, client_id: UUID) -> None:
         await self.repository.revoke_by_client(client_id)
+
+    async def revoke_by_user_and_client(self, user_id: UUID, client_id: UUID) -> None:
+        await self.repository.revoke_by_user_and_client(user_id, client_id)

@@ -2,11 +2,15 @@ from fastapi import APIRouter, Request
 
 from app.api.deps import (
     CurrentUserDep,
+    OAuthClientServiceDep,
+    OAuthConsentServicesDep,
     RequireSessionDep,
     RequireSuperuserDep,
     UserServicesDep,
 )
 from app.common.enum import MFAMethod
+from app.common.error_message import ErrorMessage
+from app.core.exception import NotFoundError
 from app.core.rate_limit import rate_limit, rate_limit_by_user
 from app.schemas.mfa import (
     MfaCodeSchema,
@@ -20,6 +24,7 @@ from app.schemas.otp import (
     ResendVerificationSchema,
     VerifyEmailSchema,
 )
+from app.schemas.token import ConsentSummarySchema
 from app.schemas.user import (
     ChangePasswordSchema,
     CreateUserSchema,
@@ -125,6 +130,38 @@ async def disable_mfa(
     current_user: RequireSessionDep,
 ):
     await user_services.disable_mfa(str(current_user.id), data.code)
+    return {"message": "success"}
+
+
+@router.get("/me/consents", response_model=list[ConsentSummarySchema])
+async def list_my_consents(
+    current_user: RequireSessionDep,
+    consent_services: OAuthConsentServicesDep,
+):
+    consents = await consent_services.list_user_consents(current_user.id)
+    return [
+        ConsentSummarySchema(
+            client_id=consent.client.client_id,
+            client_name=consent.client.name,
+            scopes=consent.scopes,
+            granted_at=consent.created_at,
+            updated_at=consent.updated_at,
+        )
+        for consent in consents
+    ]
+
+
+@router.delete("/me/consents/{client_id}")
+async def revoke_my_consent(
+    client_id: str,
+    current_user: RequireSessionDep,
+    consent_services: OAuthConsentServicesDep,
+    client_services: OAuthClientServiceDep,
+):
+    client = await client_services.get_client_by_id(client_id)
+    revoked = await consent_services.revoke_consent(current_user.id, client.id)
+    if not revoked:
+        raise NotFoundError(ErrorMessage.NOT_FOUND)
     return {"message": "success"}
 
 

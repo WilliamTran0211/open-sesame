@@ -1,4 +1,5 @@
-from typing import Annotated, Literal, Optional, Union
+from datetime import datetime
+from typing import Annotated, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +31,14 @@ class ConsentRequest(BaseModel):
 
 class ConsentResponse(BaseModel):
     redirect_to: str
+
+
+class ConsentSummarySchema(BaseModel):
+    client_id: str = Field(description="The OAuth client's public client_id")
+    client_name: str
+    scopes: List[str]
+    granted_at: datetime
+    updated_at: datetime
 
 
 class RefreshTokenRequest(BaseModel):

@@ -73,8 +73,13 @@ def get_scope_services(db: DBDep) -> ScopeServices:
     return ScopeServices(db)
 
 
-def get_oauth_consent_services(db: DBDep) -> OAuthConsentService:
-    return OAuthConsentService(db)
+def get_oauth_consent_services(
+    db: DBDep,
+    token_services: Annotated[
+        RefreshTokenServices, Depends(get_refresh_token_services)
+    ],
+) -> OAuthConsentService:
+    return OAuthConsentService(db, token_services)
 
 
 def get_client_services(

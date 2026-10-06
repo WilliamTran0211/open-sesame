@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.oauth_consent import OAuthConsent
 from app.repository.base import BaseRepository
@@ -21,6 +22,16 @@ class OAuthConsentRepository(BaseRepository[OAuthConsent]):
         )
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
+
+    async def list_by_user(self, user_id: UUID) -> List[OAuthConsent]:
+        query = (
+            select(OAuthConsent)
+            .where(OAuthConsent.user_id == user_id)
+            .options(selectinload(OAuthConsent.client))
+            .order_by(OAuthConsent.updated_at.desc())
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
 
     async def upsert(
         self, user_id: UUID, client_id: UUID, scopes: List[str]

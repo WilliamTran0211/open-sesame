@@ -34,6 +34,21 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         await self.db.execute(stmt)
         await self.db.flush()
 
+    async def revoke_by_user_and_client(self, user_id: UUID, client_id: UUID) -> None:
+        """Used when a user revokes their own consent for one app — kills
+        that app's refresh tokens for this user only, not other users."""
+        stmt = (
+            update(RefreshToken)
+            .where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.client_id == client_id,
+                RefreshToken.is_revoked.is_(False),
+            )
+            .values(is_revoked=True, revoked_at=datetime.now(timezone.utc))
+        )
+        await self.db.execute(stmt)
+        await self.db.flush()
+
     async def revoke_by_family(self, family_id: UUID) -> None:
         stmt = (
             update(RefreshToken)
